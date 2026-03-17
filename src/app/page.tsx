@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import Header from '@/components/Header';
 import { useTheme } from '@/context/ThemeContext';
 
@@ -56,7 +57,7 @@ export default function Dashboard() {
             value={stats.totalShipments}
             change="+12%"
             trend="up"
-            icon="📦"
+            icon="/static/首页2（4）/总运输批次.png"
             isDark={isDark}
           />
           <StatCard
@@ -64,7 +65,7 @@ export default function Dashboard() {
             value={stats.activeShipments}
             change="+3"
             trend="up"
-            icon="🚚"
+            icon="/static/首页2（4）/运输中.png"
             highlight
             isDark={isDark}
           />
@@ -73,7 +74,7 @@ export default function Dashboard() {
             value={stats.riskAlerts}
             change="-2"
             trend="down"
-            icon="⚠️"
+            icon="/static/首页2（4）/风险预警.png"
             warning
             isDark={isDark}
           />
@@ -82,7 +83,7 @@ export default function Dashboard() {
             value={`${stats.avgTemperature}°C`}
             change="稳定"
             trend="stable"
-            icon="🌡️"
+            icon="/static/首页2（4）/平均温度.png"
             isDark={isDark}
           />
         </div>
@@ -121,7 +122,17 @@ function StatCard({ title, value, change, trend, icon, highlight, warning, isDar
         : 'border-[#e2e8f0] bg-white'
     } backdrop-blur-sm`}>
       <div className="flex items-start justify-between mb-4">
-        <span className="text-2xl">{icon}</span>
+        {icon.endsWith('.png') ? (
+          <Image 
+            src={icon} 
+            alt={title}
+            width={32}
+            height={32}
+            className="inline-block"
+          />
+        ) : (
+          <span className="text-2xl">{icon}</span>
+        )}
         <span className={`text-xs font-medium ${getTrendColor()}`}>{change}</span>
       </div>
       <h3 className={`text-sm mb-1 ${isDark ? 'text-[#94a3b8]' : 'text-[#64748b]'}`}>{title}</h3>
@@ -723,22 +734,54 @@ function AIPredictionCard({ isDark }: { isDark: boolean }) {
         {!predictionResult && (
           <div className={`grid grid-cols-4 gap-6 mt-8 pt-8 border-t ${isDark ? 'border-[#1e293b]' : 'border-[#e2e8f0]'}`}>
             <div className="text-center">
-              <div className="text-4xl mb-2">🧠</div>
+              <div className="mb-2">
+                <Image 
+                  src="/static/首页1（4）/ai分析.png" 
+                  alt="AI分析"
+                  width={48}
+                  height={48}
+                  className="inline-block"
+                />
+              </div>
               <div className="font-semibold">AI 分析</div>
               <div className={`text-xs ${isDark ? 'text-[#94a3b8]' : 'text-[#64748b]'}`}>豆包大模型支持</div>
             </div>
             <div className="text-center">
-              <div className="text-4xl mb-2">⏰</div>
+              <div className="mb-2">
+                <Image 
+                  src="/static/首页1（4）/提前三天.png" 
+                  alt="提前三天"
+                  width={48}
+                  height={48}
+                  className="inline-block"
+                />
+              </div>
               <div className="font-semibold">提前 72h</div>
               <div className={`text-xs ${isDark ? 'text-[#94a3b8]' : 'text-[#64748b]'}`}>预测未来三天风险</div>
             </div>
             <div className="text-center">
-              <div className="text-4xl mb-2">📊</div>
+              <div className="mb-2">
+                <Image 
+                  src="/static/首页1（4）/多维度分析.png" 
+                  alt="多维度分析"
+                  width={48}
+                  height={48}
+                  className="inline-block"
+                />
+              </div>
               <div className="font-semibold">多维度分析</div>
               <div className={`text-xs ${isDark ? 'text-[#94a3b8]' : 'text-[#64748b]'}`}>温度/位置/历史数据</div>
             </div>
             <div className="text-center">
-              <div className="text-4xl mb-2">✅</div>
+              <div className="mb-2">
+                <Image 
+                  src="/static/首页1（4）/智能建议.png" 
+                  alt="智能建议"
+                  width={48}
+                  height={48}
+                  className="inline-block"
+                />
+              </div>
               <div className="font-semibold">智能建议</div>
               <div className={`text-xs ${isDark ? 'text-[#94a3b8]' : 'text-[#64748b]'}`}>可执行的干预方案</div>
             </div>

@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { useTheme } from '@/context/ThemeContext';
 
 interface Stats {
@@ -60,7 +61,17 @@ function NavDropdown({ label, href, items, badge, isDark, isActive = false }: Na
                   className={`flex items-center justify-between p-2 rounded-lg transition-colors ${isDark ? 'bg-[#0f172a]/50 hover:bg-[#38bdf8]/10' : 'bg-[#f8fafc] hover:bg-[#38bdf8]/10'}`}
                 >
                   <div className="flex items-center gap-2">
-                    <span className="text-lg">{item.icon}</span>
+                    {item.icon.endsWith('.png') ? (
+                      <Image 
+                        src={item.icon} 
+                        alt={item.label}
+                        width={20}
+                        height={20}
+                        className="inline-block"
+                      />
+                    ) : (
+                      <span className="text-lg">{item.icon}</span>
+                    )}
                     <span className={`text-sm ${isDark ? 'text-[#94a3b8]' : 'text-[#64748b]'}`}>{item.label}</span>
                   </div>
                   <span className={`text-lg font-bold ${isDark ? 'text-white' : 'text-[#0f172a]'}`}>{item.value}</span>
@@ -143,7 +154,13 @@ function AccountDropdown({ user, onLogout, isDark }: { user: User | null; onLogo
                 href="/account"
                 className={`flex items-center space-x-3 p-3 rounded-lg transition-colors group hover:bg-[#38bdf8]/10`}
               >
-                <span className="text-xl">👤</span>
+                <span className="text-xl"><Image 
+                  src="/static/self/icon.png" 
+                  alt="账户图标"
+                  width={20}
+                  height={20}
+                  className="inline-block"
+                /></span>
                 <div>
                   <p className={`text-sm group-hover:text-[#38bdf8] transition-colors ${isDark ? 'text-white' : 'text-[#0f172a]'}`}>账户设置</p>
                   <p className={`text-xs ${isDark ? 'text-[#94a3b8]' : 'text-[#64748b]'}`}>个人信息、密码安全</p>
@@ -154,7 +171,13 @@ function AccountDropdown({ user, onLogout, isDark }: { user: User | null; onLogo
                 href="/billing"
                 className={`flex items-center space-x-3 p-3 rounded-lg transition-colors group hover:bg-[#38bdf8]/10`}
               >
-                <span className="text-xl">💳</span>
+                <span className="text-xl"><Image 
+                  src="/static/self/subscribe.png" 
+                  alt="订阅"
+                  width={20}
+                  height={20}
+                  className="inline-block"
+                /></span>
                 <div>
                   <p className={`text-sm group-hover:text-[#38bdf8] transition-colors ${isDark ? 'text-white' : 'text-[#0f172a]'}`}>订阅管理</p>
                   <p className={`text-xs ${isDark ? 'text-[#94a3b8]' : 'text-[#64748b]'}`}>{getPlanText(user.plan)} · 查看详情</p>
@@ -165,7 +188,13 @@ function AccountDropdown({ user, onLogout, isDark }: { user: User | null; onLogo
                 href="/team"
                 className={`flex items-center space-x-3 p-3 rounded-lg transition-colors group hover:bg-[#38bdf8]/10`}
               >
-                <span className="text-xl">👥</span>
+                <span className="text-xl"><Image 
+                  src="/static/self/team.png" 
+                  alt="团队"
+                  width={20}
+                  height={20}
+                  className="inline-block"
+                /></span>
                 <div>
                   <p className={`text-sm group-hover:text-[#38bdf8] transition-colors ${isDark ? 'text-white' : 'text-[#0f172a]'}`}>团队管理</p>
                   <p className={`text-xs ${isDark ? 'text-[#94a3b8]' : 'text-[#64748b]'}`}>成员、权限</p>
@@ -176,7 +205,13 @@ function AccountDropdown({ user, onLogout, isDark }: { user: User | null; onLogo
                 href="/settings"
                 className={`flex items-center space-x-3 p-3 rounded-lg transition-colors group hover:bg-[#38bdf8]/10`}
               >
-                <span className="text-xl">⚙️</span>
+                <span className="text-xl"><Image 
+                  src="/static/self/setting.png" 
+                  alt="设置"
+                  width={20}
+                  height={20}
+                  className="inline-block"
+                /></span>
                 <div>
                   <p className={`text-sm group-hover:text-[#38bdf8] transition-colors ${isDark ? 'text-white' : 'text-[#0f172a]'}`}>系统设置</p>
                   <p className={`text-xs ${isDark ? 'text-[#94a3b8]' : 'text-[#64748b]'}`}>主题、通知</p>
@@ -189,7 +224,13 @@ function AccountDropdown({ user, onLogout, isDark }: { user: User | null; onLogo
                 onClick={onLogout}
                 className="w-full flex items-center space-x-3 p-3 rounded-lg hover:bg-red-500/10 transition-colors text-left"
               >
-                <span className="text-xl">🚪</span>
+                <span className="text-xl"><Image 
+                  src="/static/self/release.png" 
+                  alt="退出登录"
+                  width={20}
+                  height={20}
+                  className="inline-block"
+                /></span>
                 <p className="text-sm text-red-400">退出登录</p>
               </button>
             </div>
@@ -270,9 +311,9 @@ export default function Header({
               isDark={isDark}
               isActive={isNavPage && currentPage === 'shipments'}
               items={[
-                { label: '总批次', value: stats.totalShipments, icon: '📦' },
-                { label: '运输中', value: stats.activeShipments, icon: '🚚' },
-                { label: '已完成', value: stats.totalShipments - stats.activeShipments > 0 ? stats.totalShipments - stats.activeShipments : 0, icon: '✅' },
+                { label: '总批次', value: stats.totalShipments, icon: '/static/transport/all.png' },
+                { label: '运输中', value: stats.activeShipments, icon: '/static/transport/ing.png' },
+                { label: '已完成', value: stats.totalShipments - stats.activeShipments > 0 ? stats.totalShipments - stats.activeShipments : 0, icon: '/static/transport/complete.png' },
               ]}
             />
             <NavDropdown 
@@ -281,9 +322,9 @@ export default function Header({
               isDark={isDark}
               isActive={isNavPage && currentPage === 'alerts'}
               items={[
-                { label: '未处理', value: stats.riskAlerts, icon: '🔴' },
-                { label: '高风险', value: Math.ceil(stats.riskAlerts * 0.3), icon: '🟠' },
-                { label: '中等风险', value: Math.ceil(stats.riskAlerts * 0.4), icon: '🟡' },
+                { label: '未处理', value: stats.riskAlerts, icon: '/static/风险预测（3）/未处理.png' },
+                { label: '高风险', value: Math.ceil(stats.riskAlerts * 0.3), icon: '/static/风险预测（3）/高风险.png' },
+                { label: '中等风险', value: Math.ceil(stats.riskAlerts * 0.4), icon: '/static/风险预测（3）/中等风险.png' },
               ]}
               badge={stats.riskAlerts > 0 ? stats.riskAlerts : null}
             />
