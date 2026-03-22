@@ -98,142 +98,129 @@ function AccountDropdown({ user, onLogout, isDark }: { user: User | null; onLogo
     return (
       <Link
         href="/login"
-        className="px-4 py-2 bg-gradient-to-r from-[#38bdf8] to-[#0ea5e9] text-white text-sm font-medium rounded-lg hover:shadow-lg hover:shadow-[#38bdf8]/30 transition-all"
+        className={`text-sm font-medium transition-colors ${isDark ? 'text-[#94a3b8] hover:text-white' : 'text-[#64748b] hover:text-[#0f172a]'}`}
       >
         登录
       </Link>
     );
   }
 
-  const getPlanText = (plan: string) => {
-    switch (plan) {
-      case 'basic': return '基础版';
-      case 'pro': return '专业版';
-      case 'enterprise': return '企业版';
-      default: return plan;
-    }
-  };
-
   return (
-    <div 
-      className="relative"
-      onMouseEnter={() => setIsOpen(true)}
-      onMouseLeave={() => setIsOpen(false)}
-    >
-      <button className={`flex items-center space-x-3 p-2 rounded-lg transition-colors ${isDark ? 'hover:bg-[#1e293b]' : 'hover:bg-[#f1f5f9]'}`}>
-        <div className="w-9 h-9 rounded-full bg-gradient-to-br from-[#38bdf8] to-[#f97316] flex items-center justify-center text-white font-semibold text-sm">
-          {user.name.charAt(0)}
+    <div className="relative">
+      <button
+        onClick={() => setIsOpen(!isOpen)}
+        className={`flex items-center space-x-3 p-2 rounded-lg transition-colors ${isDark ? 'hover:bg-[#334155]' : 'hover:bg-[#f1f5f9]'}`}
+      >
+        <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#64748b] to-[#475569] flex items-center justify-center text-white font-semibold">
+          {user.name?.charAt(0) || user.email?.charAt(0) || 'U'}
         </div>
-        <div className="hidden md:block text-left">
+        <div className="text-left">
           <p className={`text-sm font-medium ${isDark ? 'text-white' : 'text-[#0f172a]'}`}>{user.name}</p>
-          <p className={`text-xs ${isDark ? 'text-[#94a3b8]' : 'text-[#64748b]'}`}>{getPlanText(user.plan)}</p>
+          <p className={`text-xs ${isDark ? 'text-[#94a3b8]' : 'text-[#64748b]'}`}>{user.company}</p>
         </div>
-        <svg className={`w-4 h-4 ${isDark ? 'text-[#94a3b8]' : 'text-[#64748b]'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-        </svg>
       </button>
-
+      
       {isOpen && (
-        <div className="absolute right-0 top-full pt-3 z-[100]">
-          <div className={`w-72 border rounded-xl shadow-xl shadow-black/50 overflow-hidden ${isDark ? 'bg-[#1e293b] border-[#334155]' : 'bg-white border-[#e2e8f0]'}`}>
-            <div className={`p-4 border-b ${isDark ? 'border-[#334155]' : 'border-[#e2e8f0]'}`}>
-              <div className="flex items-center space-x-3">
-                <div className="w-12 h-12 rounded-full bg-gradient-to-br from-[#38bdf8] to-[#f97316] flex items-center justify-center text-white font-semibold">
-                  {user.name.charAt(0)}
-                </div>
-                <div>
-                  <p className={`font-semibold ${isDark ? 'text-white' : 'text-[#0f172a]'}`}>{user.name}</p>
-                  <p className={`text-sm ${isDark ? 'text-[#94a3b8]' : 'text-[#64748b]'}`}>{user.email}</p>
-                  <p className={`text-xs ${isDark ? 'text-[#64748b]' : 'text-[#94a3b8]'}`}>{user.company}</p>
-                </div>
+        <div className="absolute top-full right-0 mt-2 w-64 rounded-xl border shadow-xl shadow-black/50 overflow-hidden z-[100]">
+          <div className={`p-4 border-b ${isDark ? 'bg-[#1e293b] border-[#334155]' : 'bg-white border-[#e2e8f0]'}`}>
+            <div className="flex items-center space-x-3">
+              <div className="w-12 h-12 rounded-full bg-gradient-to-br from-[#64748b] to-[#475569] flex items-center justify-center text-white font-semibold">
+                {user.name?.charAt(0) || user.email?.charAt(0) || 'U'}
+              </div>
+              <div>
+                <p className={`font-medium ${isDark ? 'text-white' : 'text-[#0f172a]'}`}>{user.name}</p>
+                <p className={`text-sm ${isDark ? 'text-[#94a3b8]' : 'text-[#64748b]'}`}>{user.email}</p>
+                <span className="inline-block mt-1 px-2 py-0.5 bg-gradient-to-r from-[#38bdf8] to-[#0ea5e9] text-white text-xs rounded-full">
+                  {user.plan === 'pro' ? '专业版' : '基础版'}
+                </span>
               </div>
             </div>
+          </div>
+          
+          <div className="p-2">
+            <Link
+              href="/account"
+              className={`flex items-center space-x-3 p-3 rounded-lg transition-colors group hover:bg-[#38bdf8]/10`}
+            >
+              <span className="text-xl"><Image 
+                src="/static/self/icon.png" 
+                alt="账户图标"
+                width={20}
+                height={20}
+                className="inline-block"
+              /></span>
+              <div>
+                <p className={`text-sm group-hover:text-[#38bdf8] transition-colors ${isDark ? 'text-white' : 'text-[#0f172a]'}`}>账户设置</p>
+                <p className={`text-xs ${isDark ? 'text-[#94a3b8]' : 'text-[#64748b]'}`}>个人信息、密码安全</p>
+              </div>
+            </Link>
             
-            <div className="p-2">
-              <Link
-                href="/account"
-                className={`flex items-center space-x-3 p-3 rounded-lg transition-colors group hover:bg-[#38bdf8]/10`}
-              >
-                <span className="text-xl"><Image 
-                  src="/static/self/icon.png" 
-                  alt="账户图标"
-                  width={20}
-                  height={20}
-                  className="inline-block"
-                /></span>
-                <div>
-                  <p className={`text-sm group-hover:text-[#38bdf8] transition-colors ${isDark ? 'text-white' : 'text-[#0f172a]'}`}>账户设置</p>
-                  <p className={`text-xs ${isDark ? 'text-[#94a3b8]' : 'text-[#64748b]'}`}>个人信息、密码安全</p>
-                </div>
-              </Link>
-              
-              <Link
-                href="/billing"
-                className={`flex items-center space-x-3 p-3 rounded-lg transition-colors group hover:bg-[#38bdf8]/10`}
-              >
-                <span className="text-xl"><Image 
-                  src="/static/self/subscribe.png" 
-                  alt="订阅"
-                  width={20}
-                  height={20}
-                  className="inline-block"
-                /></span>
-                <div>
-                  <p className={`text-sm group-hover:text-[#38bdf8] transition-colors ${isDark ? 'text-white' : 'text-[#0f172a]'}`}>订阅管理</p>
-                  <p className={`text-xs ${isDark ? 'text-[#94a3b8]' : 'text-[#64748b]'}`}>{getPlanText(user.plan)} · 查看详情</p>
-                </div>
-              </Link>
-              
-              <Link
-                href="/team"
-                className={`flex items-center space-x-3 p-3 rounded-lg transition-colors group hover:bg-[#38bdf8]/10`}
-              >
-                <span className="text-xl"><Image 
-                  src="/static/self/team.png" 
-                  alt="团队"
-                  width={20}
-                  height={20}
-                  className="inline-block"
-                /></span>
-                <div>
-                  <p className={`text-sm group-hover:text-[#38bdf8] transition-colors ${isDark ? 'text-white' : 'text-[#0f172a]'}`}>团队管理</p>
-                  <p className={`text-xs ${isDark ? 'text-[#94a3b8]' : 'text-[#64748b]'}`}>成员、权限</p>
-                </div>
-              </Link>
-              
-              <Link
-                href="/settings"
-                className={`flex items-center space-x-3 p-3 rounded-lg transition-colors group hover:bg-[#38bdf8]/10`}
-              >
-                <span className="text-xl"><Image 
-                  src="/static/self/setting.png" 
-                  alt="设置"
-                  width={20}
-                  height={20}
-                  className="inline-block"
-                /></span>
-                <div>
-                  <p className={`text-sm group-hover:text-[#38bdf8] transition-colors ${isDark ? 'text-white' : 'text-[#0f172a]'}`}>系统设置</p>
-                  <p className={`text-xs ${isDark ? 'text-[#94a3b8]' : 'text-[#64748b]'}`}>主题、通知</p>
-                </div>
-              </Link>
-            </div>
+            <Link
+              href="/billing"
+              className={`flex items-center space-x-3 p-3 rounded-lg transition-colors group hover:bg-[#38bdf8]/10`}
+            >
+              <span className="text-xl"><Image 
+                src="/static/self/subscribe.png" 
+                alt="订阅管理"
+                width={20}
+                height={20}
+                className="inline-block"
+              /></span>
+              <div>
+                <p className={`text-sm group-hover:text-[#38bdf8] transition-colors ${isDark ? 'text-white' : 'text-[#0f172a]'}`}>订阅管理</p>
+                <p className={`text-xs ${isDark ? 'text-[#94a3b8]' : 'text-[#64748b]'}`}>套餐、发票、续费</p>
+              </div>
+            </Link>
             
-            <div className={`p-2 border-t ${isDark ? 'border-[#334155]' : 'border-[#e2e8f0]'}`}>
-              <button
-                onClick={onLogout}
-                className="w-full flex items-center space-x-3 p-3 rounded-lg hover:bg-red-500/10 transition-colors text-left"
-              >
-                <span className="text-xl"><Image 
-                  src="/static/self/release.png" 
-                  alt="退出登录"
-                  width={20}
-                  height={20}
-                  className="inline-block"
-                /></span>
-                <p className="text-sm text-red-400">退出登录</p>
-              </button>
-            </div>
+            <Link
+              href="/team"
+              className={`flex items-center space-x-3 p-3 rounded-lg transition-colors group hover:bg-[#38bdf8]/10`}
+            >
+              <span className="text-xl"><Image 
+                src="/static/self/team.png" 
+                alt="团队管理"
+                width={20}
+                height={20}
+                className="inline-block"
+              /></span>
+              <div>
+                <p className={`text-sm group-hover:text-[#38bdf8] transition-colors ${isDark ? 'text-white' : 'text-[#0f172a]'}`}>团队管理</p>
+                <p className={`text-xs ${isDark ? 'text-[#94a3b8]' : 'text-[#64748b]'}`}>成员、权限</p>
+              </div>
+            </Link>
+            
+            <Link
+              href="/settings"
+              className={`flex items-center space-x-3 p-3 rounded-lg transition-colors group hover:bg-[#38bdf8]/10`}
+            >
+              <span className="text-xl"><Image 
+                src="/static/self/setting.png" 
+                alt="设置"
+                width={20}
+                height={20}
+                className="inline-block"
+              /></span>
+              <div>
+                <p className={`text-sm group-hover:text-[#38bdf8] transition-colors ${isDark ? 'text-white' : 'text-[#0f172a]'}`}>系统设置</p>
+                <p className={`text-xs ${isDark ? 'text-[#94a3b8]' : 'text-[#64748b]'}`}>主题、通知</p>
+              </div>
+            </Link>
+          </div>
+          
+          <div className={`p-2 border-t ${isDark ? 'border-[#334155]' : 'border-[#e2e8f0]'}`}>
+            <button
+              onClick={onLogout}
+              className="w-full flex items-center space-x-3 p-3 rounded-lg hover:bg-red-500/10 transition-colors text-left"
+            >
+              <span className="text-xl"><Image 
+                src="/static/self/release.png" 
+                alt="退出登录"
+                width={20}
+                height={20}
+                className="inline-block"
+              /></span>
+              <p className="text-sm text-red-400">退出登录</p>
+            </button>
           </div>
         </div>
       )}
@@ -253,6 +240,52 @@ export default function Header({
   
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const [realTimeStats, setRealTimeStats] = useState<Stats>(stats);
+  const [lastUpdate, setLastUpdate] = useState<number>(Date.now());
+
+  // 实时获取统计数据
+  const fetchRealTimeStats = async () => {
+    try {
+      const response = await fetch('/api/stats');
+      if (response.ok) {
+        const result = await response.json();
+        if (result.success) {
+          // 转换API数据结构为组件期望的结构
+          const apiData = result.data;
+          const transformedData: Stats = {
+            totalShipments: apiData.shipments?.total || 0,
+            activeShipments: apiData.shipments?.active || 0,
+            riskAlerts: apiData.alerts?.total || 0
+          };
+          setRealTimeStats(transformedData);
+          setLastUpdate(Date.now());
+        }
+      }
+    } catch (error) {
+      console.error('获取实时统计数据失败:', error);
+    }
+  };
+
+  // 监听数据库变动事件
+  useEffect(() => {
+    // 初始加载数据
+    fetchRealTimeStats();
+
+    // 设置定期刷新（每30秒）
+    const interval = setInterval(fetchRealTimeStats, 30000);
+    
+    // 监听自定义事件（当其他页面有数据库操作时触发）
+    const handleDataChange = () => {
+      fetchRealTimeStats();
+    };
+    
+    window.addEventListener('databaseChange', handleDataChange);
+    
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('databaseChange', handleDataChange);
+    };
+  }, []);
 
   useEffect(() => {
     const storedUser = localStorage.getItem('current_user');
@@ -311,9 +344,9 @@ export default function Header({
               isDark={isDark}
               isActive={isNavPage && currentPage === 'shipments'}
               items={[
-                { label: '总批次', value: stats.totalShipments, icon: '/static/transport/all.png' },
-                { label: '运输中', value: stats.activeShipments, icon: '/static/transport/ing.png' },
-                { label: '已完成', value: stats.totalShipments - stats.activeShipments > 0 ? stats.totalShipments - stats.activeShipments : 0, icon: '/static/transport/complete.png' },
+                { label: '总批次', value: realTimeStats.totalShipments || 0, icon: '/static/transport/all.png' },
+                { label: '运输中', value: realTimeStats.activeShipments || 0, icon: '/static/transport/ing.png' },
+                { label: '已完成', value: Math.max(0, (realTimeStats.totalShipments || 0) - (realTimeStats.activeShipments || 0)), icon: '/static/transport/complete.png' },
               ]}
             />
             <NavDropdown 
@@ -322,11 +355,11 @@ export default function Header({
               isDark={isDark}
               isActive={isNavPage && currentPage === 'alerts'}
               items={[
-                { label: '未处理', value: stats.riskAlerts, icon: '/static/风险预测（3）/未处理.png' },
-                { label: '高风险', value: Math.ceil(stats.riskAlerts * 0.3), icon: '/static/风险预测（3）/高风险.png' },
-                { label: '中等风险', value: Math.ceil(stats.riskAlerts * 0.4), icon: '/static/风险预测（3）/中等风险.png' },
+                { label: '未处理', value: realTimeStats.riskAlerts || 0, icon: '/static/风险预测（3）/未处理.png' },
+                { label: '高风险', value: Math.ceil((realTimeStats.riskAlerts || 0) * 0.3), icon: '/static/风险预测（3）/高风险.png' },
+                { label: '中等风险', value: Math.ceil((realTimeStats.riskAlerts || 0) * 0.4), icon: '/static/风险预测（3）/中等风险.png' },
               ]}
-              badge={stats.riskAlerts > 0 ? stats.riskAlerts : null}
+              badge={(realTimeStats.riskAlerts || 0) > 0 ? realTimeStats.riskAlerts || 0 : null}
             />
           </nav>
           
