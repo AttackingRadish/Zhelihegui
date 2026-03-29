@@ -12,13 +12,21 @@ interface BillingRecord {
   amount: number;
   payment_date: string;
   status: string;
+  payment_status?: string; // 新字段：支付状态
+  payment_method?: string; // 新字段：支付方式
+  created_at?: string; // 新字段：创建时间
 }
 
 interface UserProfile {
   id: number;
   email: string;
   current_plan: string;
+  membership_tier?: string; // 新字段：会员等级
+  subscription_status?: string; // 新字段：订阅状态
+  subscription_start_date?: string; // 新字段：订阅开始日期
+  subscription_end_date?: string; // 新字段：订阅结束日期
   updated_at: string;
+  created_at?: string; // 新字段：创建时间
   membership_expires_at?: string; // 会员到期时间
 }
 
@@ -34,7 +42,10 @@ export default function BillingPage() {
     id: 2,
     email: '2420530702@qq.com',
     current_plan: 'basic',
-    updated_at: new Date().toISOString()
+    membership_tier: 'free',
+    subscription_status: 'active',
+    updated_at: new Date().toISOString(),
+    created_at: new Date().toISOString()
   });
   const [profileLoading, setProfileLoading] = useState(true);
   const [profileError, setProfileError] = useState<string | null>(null);
@@ -47,6 +58,20 @@ export default function BillingPage() {
     } catch (err) {
       console.error('存储本地存储失败:', err);
     }
+  };
+
+  // 从本地存储获取当前登录用户信息
+  const getCurrentUserId = (): number => {
+    try {
+      const storedUser = localStorage.getItem('current_user');
+      if (storedUser) {
+        const user = JSON.parse(storedUser);
+        return user.id || 2; // 如果没有 ID，默认使用 2
+      }
+    } catch (err) {
+      console.error('读取当前用户失败:', err);
+    }
+    return 2; // 默认用户 ID
   };
 
   // 客户端加载时从本地存储获取用户资料
@@ -68,9 +93,6 @@ export default function BillingPage() {
   const [upgradeError, setUpgradeError] = useState<string | null>(null);
   const [upgradeSuccess, setUpgradeSuccess] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState<'wechat' | 'alipay' | null>(null);
-  const [currentOrderId, setCurrentOrderId] = useState<string>('');
-  const [qrCodeUrl, setQrCodeUrl] = useState<string>('');
-  const [paymentStatus, setPaymentStatus] = useState<'pending' | 'paid' | 'failed'>('pending');
   
   // 会员信息弹窗状态
   const [showMembershipModal, setShowMembershipModal] = useState(false);
@@ -117,8 +139,8 @@ export default function BillingPage() {
       setProfileLoading(true);
       setProfileError(null);
       
-      // 使用整数格式的用户 ID
-      const userId = 2;
+      // 获取当前登录用户的 ID
+      const userId = getCurrentUserId();
       
       // 尝试直接查询所有用户，避免 RLS 限制
       const { data, error } = await supabase
@@ -129,10 +151,13 @@ export default function BillingPage() {
         console.error('Supabase 错误:', error);
         // 不设置错误信息，只使用默认资料
         setUserProfile({
-          id: 2,
-          email: '2420530702@qq.com',
+          id: userId,
+          email: 'user@example.com',
           current_plan: 'basic',
-          updated_at: new Date().toISOString()
+          membership_tier: 'free',
+          subscription_status: 'active',
+          updated_at: new Date().toISOString(),
+          created_at: new Date().toISOString()
         });
         return;
       }
@@ -170,8 +195,8 @@ export default function BillingPage() {
       setLoading(true);
       setError(null);
       
-      // 使用整数格式的用户 ID 查询账单记录
-      const userId = 2;
+      // 获取当前登录用户的 ID
+      const userId = getCurrentUserId();
       
       const { data, error } = await supabase
         .from('billing_records')
@@ -292,127 +317,80 @@ export default function BillingPage() {
     setUpgradeError(null);
     setUpgradeSuccess(false);
     setPaymentMethod(null);
-    setCurrentOrderId('');
-    setQrCodeUrl('');
-    setPaymentStatus('pending');
   };
 
-  // 创建支付订单
-  const handleCreateOrder = async () => {
-    if (!paymentMethod) {
-      setUpgradeError('请选择支付方式');
-      return;
-    }
-
+  const handlePaymentConfirm = async () => {
     try {
+      const supabaseUrl = 'https://eaavfvuteobwljfuwuqj.supabase.co';
+      const supabaseAnonKey = 'sb_publishable_i2yyqLPIHBrxl469rUGFjA_bBhlZ3Nl';
+      const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+        db: {
+          timeout: 60000,
+        },
+        auth: {
+          autoRefreshToken: false,
+          persistSession: false,
+        },
+      });
+      
       setUpgradeLoading(true);
       setUpgradeError(null);
-
-      const userId = 2; // 当前用户ID
+      
+      // 获取当前登录用户的 ID
+      const userId = getCurrentUserId();
       const planType = selectedPlan === 'pro' ? 'pro' : 'enterprise';
-
-      // 调用后端API创建支付订单
-      const response = await fetch('/api/payment/create', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          userId,
-          planType,
-          paymentMethod,
-        }),
+      
+      const { data, error } = await supabase.rpc('upgrade_user_plan', {
+        p_user_id: userId,
+        p_plan_type: planType,
+        p_payment_method: paymentMethod || 'unknown'
       });
-
-      const data = await response.json();
-
-      if (!response.ok || !data.success) {
-        setUpgradeError(data.error || '创建订单失败');
+      
+      if (error) {
+        const errorMessage = error.message || '升级失败，请重试';
+        setUpgradeError(errorMessage);
         setUpgradeLoading(false);
         return;
       }
-
-      // 保存订单信息
-      setCurrentOrderId(data.orderId);
-      setQrCodeUrl(data.qrCode);
-      setPaymentStatus('pending');
-      setUpgradeLoading(false);
-
-      // 开始轮询订单状态
-      startPollingOrderStatus(data.orderId);
-
+      
+      // 检查 RPC 返回的结果
+      if (data && data.success === false) {
+        setUpgradeError(data.message || '升级失败');
+        setUpgradeLoading(false);
+        return;
+      }
+      
+      setUpgradeSuccess(true);
+      
+      // 计算会员到期时间（一个月后）
+      const expiryDate = new Date();
+      expiryDate.setMonth(expiryDate.getMonth() + 1);
+      
+      // 直接更新用户资料，不依赖 fetchUserProfile
+      setUserProfile({
+        ...userProfile,
+        current_plan: planType,
+        membership_tier: planType, // 会员等级就是 current_plan
+        subscription_status: 'active', // 订阅状态为活跃
+        subscription_start_date: new Date().toISOString(), // 开始时间就是当前时间
+        subscription_end_date: expiryDate.toISOString(), // 结束时间是开始日期加一个月
+        membership_expires_at: expiryDate.toISOString(),
+        updated_at: new Date().toISOString()
+      });
+      
+      // 刷新账单历史
+      await fetchBillingRecords(supabase);
+      
+      // 延迟关闭模态框
+      setTimeout(() => {
+        handleCloseModal();
+      }, 1500);
+      
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : '创建订单时发生错误';
+      const errorMessage = err instanceof Error ? err.message : '升级时发生错误';
       setUpgradeError(errorMessage);
       setUpgradeLoading(false);
     }
-  };
-
-  // 轮询订单状态
-  const startPollingOrderStatus = (orderId: string) => {
-    const pollInterval = setInterval(async () => {
-      try {
-        const response = await fetch(`/api/payment/status?order_id=${orderId}`);
-        const data = await response.json();
-
-        if (!response.ok) {
-          console.error('查询订单状态失败:', data.error);
-          return;
-        }
-
-        if (data.status === 'paid') {
-          // 支付成功
-          clearInterval(pollInterval);
-          setPaymentStatus('paid');
-          setUpgradeSuccess(true);
-
-          // 更新本地用户资料
-          const expiryDate = new Date();
-          expiryDate.setDate(expiryDate.getDate() + (data.planType === 'pro' ? 30 : 365));
-
-          setUserProfile({
-            ...userProfile,
-            current_plan: data.planType,
-            membership_expires_at: expiryDate.toISOString(),
-            updated_at: new Date().toISOString()
-          });
-
-          // 刷新账单历史
-          const supabaseUrl = 'https://eaavfvuteobwljfuwuqj.supabase.co';
-          const supabaseAnonKey = 'sb_publishable_i2yyqLPIHBrxl469rUGFjA_bBhlZ3Nl';
-          const supabase = createClient(supabaseUrl, supabaseAnonKey, {
-            db: { timeout: 60000 },
-            auth: { autoRefreshToken: false, persistSession: false },
-          });
-          await fetchBillingRecords(supabase);
-
-          // 延迟关闭模态框
-          setTimeout(() => {
-            handleCloseModal();
-          }, 2000);
-        } else if (data.status === 'failed') {
-          clearInterval(pollInterval);
-          setPaymentStatus('failed');
-          setUpgradeError('支付失败，请重试');
-        }
-      } catch (error) {
-        console.error('轮询订单状态错误:', error);
-      }
-    }, 3000); // 每3秒查询一次
-
-    // 5分钟后停止轮询
-    setTimeout(() => {
-      clearInterval(pollInterval);
-    }, 5 * 60 * 1000);
-  };
-
-  // 旧的支付确认函数（保留兼容）
-  const handlePaymentConfirm = async () => {
-    // 如果已经创建了订单，不需要重复创建
-    if (currentOrderId) {
-      return;
-    }
-    await handleCreateOrder();
   };
 
   return (
@@ -543,11 +521,16 @@ export default function BillingPage() {
                         <p className={`text-xs ${isDark ? 'text-[#94a3b8]' : 'text-[#64748b]'}`}>
                           支付时间: {formatPaymentDate(record.payment_date)}
                         </p>
+                        {record.payment_method && (
+                          <p className={`text-xs ${isDark ? 'text-[#94a3b8]' : 'text-[#64748b]'}`}>
+                            支付方式: {record.payment_method === 'wechat' ? '微信' : record.payment_method === 'alipay' ? '支付宝' : record.payment_method}
+                          </p>
+                        )}
                       </div>
                       <div className="text-right">
                         <p className="text-lg font-bold text-[#38bdf8]">¥{record.amount}</p>
                         <p className={`text-xs ${isDark ? 'text-[#94a3b8]' : 'text-[#64748b]'}`}>
-                          {record.status}
+                          {record.payment_status || record.status}
                         </p>
                       </div>
                     </div>
@@ -623,98 +606,22 @@ export default function BillingPage() {
                   ) : (
                     // 显示二维码
                     <div>
-                      {currentOrderId ? (
-                        // 已创建订单，显示动态二维码
-                        <div className="space-y-4">
-                          <div className={`w-56 h-56 mx-auto rounded-lg ${isDark ? 'bg-[#0f172a]' : 'bg-[#f8fafc]'} p-4`}>
-                            {qrCodeUrl ? (
-                              <img 
-                                src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(qrCodeUrl)}`}
-                                alt="支付二维码"
-                                className="w-full h-full object-contain rounded-lg"
-                              />
-                            ) : (
-                              <div className="w-full h-full flex items-center justify-center">
-                                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#38bdf8]"></div>
-                              </div>
-                            )}
-                          </div>
-                          
-                          {/* 支付状态指示 */}
-                          {paymentStatus === 'pending' && (
-                            <div className="flex items-center justify-center gap-2 text-sm">
-                              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-[#38bdf8]"></div>
-                              <span className={isDark ? 'text-[#94a3b8]' : 'text-[#64748b]'}>
-                                等待支付...
-                              </span>
-                            </div>
-                          )}
-                          
-                          {paymentStatus === 'paid' && (
-                            <div className="flex items-center justify-center gap-2 text-green-500">
-                              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                              </svg>
-                              <span>支付成功！正在升级会员...</span>
-                            </div>
-                          )}
-                          
-                          {paymentStatus === 'failed' && (
-                            <div className="flex items-center justify-center gap-2 text-red-500">
-                              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                              </svg>
-                              <span>支付失败，请重试</span>
-                            </div>
-                          )}
-                          
-                          <p className={`text-sm ${isDark ? 'text-[#94a3b8]' : 'text-[#64748b]'}`}>
-                            请使用{paymentMethod === 'wechat' ? '微信' : '支付宝'}扫描二维码完成支付
-                          </p>
-                          <button
-                            onClick={() => {
-                              setPaymentMethod(null);
-                              setCurrentOrderId('');
-                              setQrCodeUrl('');
-                              setPaymentStatus('pending');
-                            }}
-                            className={`text-sm ${isDark ? 'text-[#38bdf8] hover:text-[#0ea5e9]' : 'text-[#38bdf8] hover:text-[#0ea5e9]'}`}
-                          >
-                            ← 返回选择支付方式
-                          </button>
-                        </div>
-                      ) : (
-                        // 未创建订单，显示确认按钮
-                        <div className="space-y-4">
-                          <p className={`text-sm ${isDark ? 'text-[#94a3b8]' : 'text-[#64748b]'}`}>
-                            已选择: {paymentMethod === 'wechat' ? '微信支付' : '支付宝'}
-                          </p>
-                          <button
-                            onClick={handleCreateOrder}
-                            disabled={upgradeLoading}
-                            className={`w-full py-3 rounded-lg font-medium transition-all ${
-                              selectedPlan === 'pro'
-                                ? 'bg-[#38bdf8] hover:bg-[#0ea5e9] text-white'
-                                : 'bg-[#f97316] hover:bg-[#ea580c] text-white'
-                            } ${upgradeLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
-                          >
-                            {upgradeLoading ? (
-                              <span className="flex items-center justify-center gap-2">
-                                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                                创建订单中...
-                              </span>
-                            ) : (
-                              '确认支付'
-                            )}
-                          </button>
-                          <button
-                            onClick={() => setPaymentMethod(null)}
-                            className={`text-sm ${isDark ? 'text-[#38bdf8] hover:text-[#0ea5e9]' : 'text-[#38bdf8] hover:text-[#0ea5e9]'}`}
-                          >
-                            ← 返回选择支付方式
-                          </button>
-                        </div>
-                      )}
+                      <div className={`w-56 h-auto mx-auto rounded-lg ${isDark ? 'bg-[#0f172a]' : 'bg-[#f8fafc]'} p-4`}>
+                        <img 
+                          src={paymentMethod === 'wechat' ? '/static/payment/wechat-pay.png' : '/static/payment/ali-pay.png'}
+                          alt={paymentMethod === 'wechat' ? '微信支付二维码' : '支付宝二维码'}
+                          className="w-full h-auto rounded-lg"
+                        />
+                      </div>
+                      <p className={`mt-4 text-sm ${isDark ? 'text-[#94a3b8]' : 'text-[#64748b]'}`}>
+                        请使用{paymentMethod === 'wechat' ? '微信' : '支付宝'}扫描二维码完成支付
+                      </p>
+                      <button
+                        onClick={() => setPaymentMethod(null)}
+                        className={`mt-2 text-sm ${isDark ? 'text-[#38bdf8] hover:text-[#0ea5e9]' : 'text-[#38bdf8] hover:text-[#0ea5e9]'}`}
+                      >
+                        ← 返回选择支付方式
+                      </button>
                     </div>
                   )}
                   <p className={`text-lg font-bold mt-2 ${selectedPlan === 'pro' ? 'text-[#38bdf8]' : 'text-[#f97316]'}`}>

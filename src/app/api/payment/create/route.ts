@@ -2,10 +2,10 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import crypto from 'crypto';
 
-// PayJS配置 - 请替换为你的实际配置
-const PAYJS_MCHID = process.env.PAYJS_MCHID || '';
-const PAYJS_KEY = process.env.PAYJS_KEY || '';
-const PAYJS_API_URL = 'https://payjs.cn/api/native';
+// 虎皮椒配置 - 请替换为你的实际配置
+const HUPIAO_APPID = process.env.HUPIAO_APPID || '';
+const HUPIAO_KEY = process.env.HUPIAO_KEY || '';
+const HUPIAO_API_URL = 'https://api.xunhupay.com/payment/do.html';
 
 // 创建Supabase客户端
 const createSupabaseClient = () => {
@@ -15,15 +15,22 @@ const createSupabaseClient = () => {
   );
 };
 
-// 生成PayJS签名
-const generatePayJSSign = (params: Record<string, string>, key: string) => {
-  const sortedParams = Object.keys(params)
-    .filter(k => params[k] !== '' && k !== 'sign')
-    .sort()
-    .map(k => `${k}=${params[k]}`)
-    .join('&');
-  
-  return crypto.createHash('md5').update(sortedParams + '&key=' + key).digest('hex').toUpperCase();
+// 生成随机字符串
+const generateNonceStr = () => {
+  return Math.random().toString(36).substr(2, 15);
+};
+
+// 生成虎皮椒签名
+const generateHupiaoSign = (params: {
+  appid: string;
+  body: string;
+  nonce_str: string;
+  notify_url: string;
+  total_fee: string;
+  trade_order_id: string;
+}, key: string) => {
+  const signStr = `${params.appid}${params.body}${params.nonce_str}${params.notify_url}${params.total_fee}${params.trade_order_id}${key}`;
+  return crypto.createHash('md5').update(signStr).digest('hex').toUpperCase();
 };
 
 export async function POST(request: NextRequest) {
@@ -43,6 +50,14 @@ export async function POST(request: NextRequest) {
     if (!['pro', 'enterprise'].includes(planType)) {
       return NextResponse.json(
         { error: '无效的套餐类型' },
+        { status: 400 }
+      );
+    }
+
+    // 验证支付方式
+    if (!['wechat', 'alipay'].includes(paymentMethod || 'wechat')) {
+      return NextResponse.json(
+        { error: '无效的支付方式' },
         { status: 400 }
       );
     }
@@ -78,61 +93,70 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 调用PayJS API创建支付
-    const payjsParams: Record<string, string> = {
-      mchid: PAYJS_MCHID,
-      total_fee: (amount * 100).toString(), // 转换为分
-      out_trade_no: orderId,
+    // 调用虎皮椒API创建支付
+    const nonceStr = generateNonceStr();
+    const hupiaoParams = {
+      appid: HUPIAO_APPID,
       body: `升级${planType === 'pro' ? '专业版' : '企业版'}`,
+      nonce_str: nonceStr,
       notify_url: `${process.env.NEXT_PUBLIC_APP_URL}/api/payment/notify`,
-      callback_url: `${process.env.NEXT_PUBLIC_APP_URL}/billing`,
-      attach: JSON.stringify({ userId, planType })
+      total_fee: amount.toString(),
+      trade_order_id: orderId,
+      attach: JSON.stringify({ userId, planType }),
+      type: paymentMethod === 'wechat' ? 'WxPay' : 'AliPay'
     };
 
     // 生成签名
-    payjsParams.sign = generatePayJSSign(payjsParams, PAYJS_KEY);
+    hupiaoParams.sign = generateHupiaoSign({
+      appid: hupiaoParams.appid,
+      body: hupiaoParams.body,
+      nonce_str: hupiaoParams.nonce_str,
+      notify_url: hupiaoParams.notify_url,
+      total_fee: hupiaoParams.total_fee,
+      trade_order_id: hupiaoParams.trade_order_id
+    }, HUPIAO_KEY);
 
-    // 调用PayJS API
-    const payjsResponse = await fetch(PAYJS_API_URL, {
+    // 调用虎皮椒API
+    const hupiaoResponse = await fetch(HUPIAO_API_URL, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'
       },
-      body: JSON.stringify(payjsParams)
+      body: JSON.stringify(hupiaoParams)
     });
 
-    const payjsData = await payjsResponse.json();
+    const hupiaoData = await hupiaoResponse.json();
 
-    if (payjsData.return_code !== 1) {
+    if (hupiaoData.errcode !== 0) {
       // 更新订单状态为失败
       await supabase
         .from('payment_orders')
         .update({ 
           status: 'failed',
-          error_msg: payjsData.return_msg 
+          error_msg: hupiaoData.errmsg || '创建支付失败'
         })
         .eq('id', orderId);
 
       return NextResponse.json(
-        { error: payjsData.return_msg || '创建支付失败' },
+        { error: hupiaoData.errmsg || '创建支付失败' },
         { status: 500 }
       );
     }
 
-    // 更新订单的PayJS订单号
+    // 更新订单的虎皮椒订单号
     await supabase
       .from('payment_orders')
       .update({ 
-        payjs_order_id: payjsData.jsapi_order_id,
-        payjs_data: payjsData
+        payjs_order_id: hupiaoData.order_id,
+        payjs_data: hupiaoData
       })
       .eq('id', orderId);
 
     return NextResponse.json({
       success: true,
       orderId: orderId,
-      payjsOrderId: payjsData.jsapi_order_id,
-      qrCode: payjsData.code_url, // 支付二维码链接
+      payjsOrderId: hupiaoData.order_id,
+      qrCode: hupiaoData.url_qrcode, // 支付二维码链接
       amount: amount
     });
 
