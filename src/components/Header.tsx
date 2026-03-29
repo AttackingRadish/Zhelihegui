@@ -232,7 +232,7 @@ export default function Header({
   currentPage, 
   stats = { totalShipments: 0, activeShipments: 0, riskAlerts: 0 } 
 }: { 
-  currentPage: 'ai-predict' | 'shipments' | 'alerts' | 'settings' | 'account' | 'billing' | 'team' | 'login'; 
+  currentPage: 'compliance-investigation' | 'ai-predict' | 'shipments' | 'alerts' | 'settings' | 'account' | 'billing' | 'team' | 'login'; 
   stats?: Stats;
 }) {
   const { theme } = useTheme();
@@ -313,7 +313,7 @@ export default function Header({
     window.location.href = '/login';
   };
 
-  const isNavPage = currentPage === 'ai-predict' || currentPage === 'shipments' || currentPage === 'alerts';
+  const isNavPage = currentPage === 'compliance-investigation' || currentPage === 'ai-predict' || currentPage === 'shipments' || currentPage === 'alerts';
 
   return (
     <header className={`sticky top-0 z-[60] border-b backdrop-blur-sm ${isDark ? 'border-[#1e293b] bg-[#0f172a]/95' : 'border-[#e2e8f0] bg-white/95'}`}>
@@ -332,6 +332,12 @@ export default function Header({
           </div>
           
           <nav className="flex items-center space-x-6">
+            <Link 
+              href="/compliance-investigation" 
+              className={`text-sm font-medium transition-colors ${isNavPage && currentPage === 'compliance-investigation' ? 'text-[#38bdf8]' : (isDark ? 'text-[#94a3b8] hover:text-white' : 'text-[#64748b] hover:text-[#0f172a]')}`}
+            >
+              AI合规调查
+            </Link>
             <Link 
               href="/" 
               className={`text-sm font-medium transition-colors ${isNavPage && currentPage === 'ai-predict' ? 'text-[#38bdf8]' : (isDark ? 'text-[#94a3b8] hover:text-white' : 'text-[#64748b] hover:text-[#0f172a]')}`}
