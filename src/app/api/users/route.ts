@@ -17,6 +17,12 @@ export async function GET(request: NextRequest) {
     if (plan) {
       query = query.eq('plan', plan);
     }
+    
+    // 添加对 email 查询参数的支持
+    const email = searchParams.get('email');
+    if (email) {
+      query = query.eq('email', email);
+    }
 
     const { data, error } = await query.order('created_at', { ascending: false });
 

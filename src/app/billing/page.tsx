@@ -75,11 +75,18 @@ export default function BillingPage() {
   };
 
   // 客户端加载时从本地存储获取用户资料
+  // 注意：这个 useEffect 会在 initSupabase 之前执行
+  // 但我们会在 initSupabase 中重新获取最新的用户资料，所以这里只是临时设置
   useEffect(() => {
     try {
       const storedProfile = localStorage.getItem('userProfile');
       if (storedProfile) {
-        _setUserProfile(JSON.parse(storedProfile));
+        const profile = JSON.parse(storedProfile);
+        // 检查本地存储的用户 ID 是否与当前登录用户的 ID 一致
+        const currentUserId = getCurrentUserId();
+        if (profile.id === currentUserId) {
+          _setUserProfile(profile);
+        }
       }
     } catch (err) {
       console.error('读取本地存储失败:', err);
@@ -100,36 +107,40 @@ export default function BillingPage() {
 
   // 初始化 Supabase 客户端
   useEffect(() => {
-    console.log('开始初始化 Supabase 客户端');
-    try {
-      const supabaseUrl = 'https://eaavfvuteobwljfuwuqj.supabase.co';
-      const supabaseAnonKey = 'sb_publishable_i2yyqLPIHBrxl469rUGFjA_bBhlZ3Nl';
-      
-      console.log('创建 Supabase 客户端');
-      const supabase = createClient(supabaseUrl, supabaseAnonKey, {
-        db: {
-          timeout: 60000,
-        },
-        auth: {
-          autoRefreshToken: false,
-          persistSession: false,
-        },
-      });
-      
-      console.log('调用 fetchUserProfile');
-      // 获取用户资料
-      fetchUserProfile(supabase);
-      console.log('调用 fetchBillingRecords');
-      // 获取账单记录
-      fetchBillingRecords(supabase);
-    } catch (err) {
-      console.error('初始化客户端失败:', err);
-      setError('初始化客户端失败');
-      setLoading(false);
-      setProfileLoading(false);
-      // 不设置默认用户资料，保持当前资料
-      // 这样即使初始化失败，也不会重置为基础版
-    }
+    const initSupabase = async () => {
+      console.log('开始初始化 Supabase 客户端');
+      try {
+        const supabaseUrl = 'https://eaavfvuteobwljfuwuqj.supabase.co';
+        const supabaseAnonKey = 'sb_publishable_i2yyqLPIHBrxl469rUGFjA_bBhlZ3Nl';
+        
+        console.log('创建 Supabase 客户端');
+        const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+          db: {
+            timeout: 60000,
+          },
+          auth: {
+            autoRefreshToken: false,
+            persistSession: false,
+          },
+        });
+        
+        console.log('调用 fetchUserProfile');
+        // 获取用户资料
+        await fetchUserProfile(supabase);
+        console.log('调用 fetchBillingRecords');
+        // 获取账单记录
+        await fetchBillingRecords(supabase);
+      } catch (err) {
+        console.error('初始化客户端失败:', err);
+        setError('初始化客户端失败');
+        setLoading(false);
+        setProfileLoading(false);
+        // 不设置默认用户资料，保持当前资料
+        // 这样即使初始化失败，也不会重置为基础版
+      }
+    };
+    
+    initSupabase();
   }, []);
 
   const fetchUserProfile = async (supabase: any) => {
@@ -166,7 +177,7 @@ export default function BillingPage() {
       console.log('查询结果:', data);
       console.log('用户 ID:', userId);
       
-      // 从所有记录中找到 ID 为 2 的用户
+      // 从所有记录中找到对应 ID 的用户
       const foundProfile = (data || []).find((profile: any) => {
         console.log('比较 ID:', profile.id, '类型:', typeof profile.id, '与', userId, '类型:', typeof userId);
         return profile.id === userId;
@@ -174,12 +185,47 @@ export default function BillingPage() {
       
       if (foundProfile) {
         console.log('找到用户:', foundProfile);
-        setUserProfile(foundProfile);
+        
+        // 检查会员是否过期
+        const now = new Date();
+        const endDate = foundProfile.subscription_end_date ? new Date(foundProfile.subscription_end_date) : null;
+        
+        if (endDate && now > endDate && foundProfile.subscription_status === 'active') {
+          console.log('会员已过期，更新状态为 inactive');
+          // 更新数据库中的状态
+          await supabase
+            .from('profiles')
+            .update({ 
+              subscription_status: 'inactive',
+              current_plan: 'basic',
+              membership_tier: 'free'
+            })
+            .eq('id', userId);
+          
+          // 更新本地状态
+          setUserProfile({
+            ...foundProfile,
+            subscription_status: 'inactive',
+            current_plan: 'basic',
+            membership_tier: 'free'
+          });
+        } else {
+          setUserProfile(foundProfile);
+        }
+        
         setProfileError(null); // 清除错误信息
       } else {
-        console.log('未找到用户，保持当前资料');
-        // 不设置错误信息，保持当前资料
-        // 这样即使获取失败，也不会重置为基础版
+        console.log('未找到用户，设置为默认基础版');
+        // 当没有找到用户资料时，设置为默认的基础版套餐
+        setUserProfile({
+          id: userId,
+          email: 'user@example.com',
+          current_plan: 'basic',
+          membership_tier: 'free',
+          subscription_status: 'active',
+          updated_at: new Date().toISOString(),
+          created_at: new Date().toISOString()
+        });
       }
     } catch (err) {
       console.error('捕获错误:', err);
@@ -197,12 +243,31 @@ export default function BillingPage() {
       
       // 获取当前登录用户的 ID
       const userId = getCurrentUserId();
+      console.log('开始查询账单记录，用户 ID:', userId, '类型:', typeof userId);
       
-      const { data, error } = await supabase
+      // 先查询所有记录，查看是否有数据（使用较大的限制）
+      const { data: allData, error: allError, count: allCount } = await supabase
         .from('billing_records')
-        .select('*')
+        .select('*', { count: 'exact' })
+        .limit(10000);
+      console.log('查询所有账单记录:', { allData, allError, allCount, allDataLength: allData?.length });
+      
+      // 手动过滤用户 3 的记录（用于调试）
+      if (allData) {
+        const user3Records = allData.filter((r: any) => r.user_id === 3);
+        console.log('手动过滤用户 3 的记录:', user3Records);
+        console.log('所有记录的 user_id:', allData.map((r: any) => ({ user_id: r.user_id, type: typeof r.user_id })));
+      }
+      
+      // 再根据用户 ID 查询（使用较大的限制）
+      const { data, error, count } = await supabase
+        .from('billing_records')
+        .select('*', { count: 'exact' })
         .eq('user_id', userId)
-        .order('payment_date', { ascending: false });
+        .order('payment_date', { ascending: false })
+        .limit(10000);
+      
+      console.log('查询账单记录结果:', { data, error, userId, count, dataLength: data?.length });
       
       if (error) {
         console.error('Supabase 错误:', error);
@@ -211,7 +276,9 @@ export default function BillingPage() {
       }
       
       setBillingRecords(data || []);
+      console.log('更新后的账单记录:', data || []);
     } catch (err) {
+      console.error('查询账单记录时发生错误:', err);
       setError('查询账单记录时发生错误');
     } finally {
       setLoading(false);
@@ -336,14 +403,35 @@ export default function BillingPage() {
       setUpgradeLoading(true);
       setUpgradeError(null);
       
-      // 获取当前登录用户的 ID
+      // 获取当前登录用户的 ID 和 email
       const userId = getCurrentUserId();
       const planType = selectedPlan === 'pro' ? 'pro' : 'enterprise';
+      
+      // 从本地存储获取用户 email
+      let userEmail = 'user@example.com';
+      try {
+        const storedUser = localStorage.getItem('current_user');
+        if (storedUser) {
+          const user = JSON.parse(storedUser);
+          userEmail = user.email || 'user@example.com';
+          console.log('当前用户:', user);
+        }
+      } catch (err) {
+        console.error('读取用户 email 失败:', err);
+      }
+      
+      console.log('升级参数:', {
+        userId,
+        planType,
+        paymentMethod: paymentMethod || 'unknown',
+        userEmail
+      });
       
       const { data, error } = await supabase.rpc('upgrade_user_plan', {
         p_user_id: userId,
         p_plan_type: planType,
-        p_payment_method: paymentMethod || 'unknown'
+        p_payment_method: paymentMethod || 'unknown',
+        p_email: userEmail
       });
       
       if (error) {
