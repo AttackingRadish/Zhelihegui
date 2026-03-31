@@ -121,7 +121,7 @@ function AccountDropdown({ user, onLogout, isDark }: { user: User | null; onLogo
       </button>
       
       {isOpen && (
-        <div className="absolute top-full right-0 mt-2 w-64 rounded-xl border shadow-xl shadow-black/50 overflow-hidden z-[100]">
+        <div className={`absolute top-full right-0 mt-2 w-64 rounded-xl border shadow-xl shadow-black/50 overflow-hidden z-[100] ${isDark ? 'bg-[#1e293b]' : 'bg-white'}`}>
           <div className={`p-4 border-b ${isDark ? 'bg-[#1e293b] border-[#334155]' : 'bg-white border-[#e2e8f0]'}`}>
             <div className="flex items-center space-x-3">
               <div className="w-12 h-12 rounded-full bg-gradient-to-br from-[#64748b] to-[#475569] flex items-center justify-center text-white font-semibold">
@@ -131,7 +131,7 @@ function AccountDropdown({ user, onLogout, isDark }: { user: User | null; onLogo
                 <p className={`font-medium ${isDark ? 'text-white' : 'text-[#0f172a]'}`}>{user.name}</p>
                 <p className={`text-sm ${isDark ? 'text-[#94a3b8]' : 'text-[#64748b]'}`}>{user.email}</p>
                 <span className="inline-block mt-1 px-2 py-0.5 bg-gradient-to-r from-[#38bdf8] to-[#0ea5e9] text-white text-xs rounded-full">
-                  {user.plan === 'pro' ? '专业版' : '基础版'}
+                  {user.plan === 'pro' ? '专业版' : user.plan === 'enterprise' ? '企业版' : '基础版'}
                 </span>
               </div>
             </div>
@@ -287,10 +287,16 @@ export default function Header({
     };
   }, []);
 
-  useEffect(() => {
+  // 加载用户信息
+  const loadUser = () => {
+    console.log('Header 组件: 开始加载用户信息');
     const storedUser = localStorage.getItem('current_user');
+    console.log('Header 组件: 从 localStorage 读取的用户信息:', storedUser);
     if (storedUser) {
-      setUser(JSON.parse(storedUser));
+      const user = JSON.parse(storedUser);
+      console.log('Header 组件: 解析后的用户信息:', user);
+      setUser(user);
+      console.log('Header 组件: 用户信息已更新');
     } else {
       const demoUser: User = {
         id: 1,
@@ -303,8 +309,31 @@ export default function Header({
       };
       setUser(demoUser);
       localStorage.setItem('current_user', JSON.stringify(demoUser));
+      console.log('Header 组件: 使用默认用户信息');
     }
     setLoading(false);
+    console.log('Header 组件: 加载用户信息完成');
+  };
+
+  useEffect(() => {
+    // 初始加载用户信息
+    console.log('Header 组件: 初始加载用户信息');
+    loadUser();
+
+    // 监听用户信息更新事件
+    const handleUserUpdate = () => {
+      console.log('Header 组件: 收到 userUpdated 事件，重新加载用户信息');
+      loadUser();
+    };
+
+    // 监听自定义事件
+    console.log('Header 组件: 开始监听 userUpdated 事件');
+    window.addEventListener('userUpdated', handleUserUpdate);
+
+    return () => {
+      console.log('Header 组件: 移除 userUpdated 事件监听器');
+      window.removeEventListener('userUpdated', handleUserUpdate);
+    };
   }, []);
 
   const handleLogout = () => {

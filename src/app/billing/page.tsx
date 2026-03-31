@@ -339,13 +339,15 @@ export default function BillingPage() {
       return;
     }
 
-    // 检查会员是否已过期
-    if (isMembershipExpired(userProfile.membership_expires_at)) {
+    // 检查会员是否已过期（优先使用 subscription_end_date）
+    const expiresAt = userProfile.subscription_end_date || userProfile.membership_expires_at;
+    if (isMembershipExpired(expiresAt)) {
       // 会员已过期，自动降级为基础版
       setUserProfile({
         ...userProfile,
         current_plan: 'basic',
         membership_expires_at: undefined,
+        subscription_end_date: undefined,
         updated_at: new Date().toISOString()
       });
       // 显示过期提示
@@ -353,7 +355,7 @@ export default function BillingPage() {
       setShowMembershipModal(true);
     } else {
       // 会员未过期，显示剩余天数
-      const remainingDays = getRemainingDays(userProfile.membership_expires_at);
+      const remainingDays = getRemainingDays(expiresAt);
       setMembershipInfo({ days: remainingDays, planName: getPlanName(userProfile.current_plan) });
       setShowMembershipModal(true);
     }
@@ -367,17 +369,51 @@ export default function BillingPage() {
 
   // 检查并自动降级（页面加载时调用）
   useEffect(() => {
-    if (userProfile.current_plan !== 'basic' && isMembershipExpired(userProfile.membership_expires_at)) {
+    const expiresAt = userProfile.subscription_end_date || userProfile.membership_expires_at;
+    if (userProfile.current_plan !== 'basic' && isMembershipExpired(expiresAt)) {
       setUserProfile({
         ...userProfile,
         current_plan: 'basic',
         membership_expires_at: undefined,
+        subscription_end_date: undefined,
         updated_at: new Date().toISOString()
       });
     }
-  }, [userProfile.membership_expires_at]);
+  }, [userProfile.subscription_end_date, userProfile.membership_expires_at, userProfile.current_plan]);
 
   const handleUpgradeClick = (planType: string) => {
+    // 检查用户是否已经是企业版
+    if (planType === 'enterprise' && userProfile.current_plan === 'enterprise') {
+      // 显示提示信息
+      alert('您当前已经是企业版会员，无需再次购买');
+      return;
+    }
+    // 检查用户是否已经是专业版且尝试购买专业版
+    if (planType === 'pro' && userProfile.current_plan === 'pro') {
+      // 显示提示信息
+      alert('您当前已经是专业版会员，无需再次购买');
+      return;
+    }
+    // 检查用户是否从企业版降级到专业版
+    if (planType === 'pro' && userProfile.current_plan === 'enterprise') {
+      // 检查会员是否过期
+      const expiresAt = userProfile.subscription_end_date || userProfile.membership_expires_at;
+      if (!isMembershipExpired(expiresAt)) {
+        // 会员未过期，显示模态框提示
+        // 创建一个自定义的提示信息
+        setMembershipInfo({ 
+          days: getRemainingDays(expiresAt), 
+          planName: getPlanName(userProfile.current_plan),
+          customMessage: '请到期后再购买专业版'
+        });
+        setShowMembershipModal(true);
+        return;
+      }
+    }
+    // 检查用户是否从企业版或专业版降级到基础版
+    if (planType === 'basic') {
+      // 这个逻辑已经在 handleSwitchToBasic 中处理
+    }
     setSelectedPlan(planType);
     setShowModal(true);
     setUpgradeError(null);
@@ -511,7 +547,8 @@ export default function BillingPage() {
       const expiryDate = new Date();
       expiryDate.setMonth(expiryDate.getMonth() + 1);
       
-      setUserProfile({
+      // 更新本地用户资料状态
+      const updatedProfile = {
         ...userProfile,
         current_plan: planType,
         membership_tier: planType,
@@ -520,12 +557,40 @@ export default function BillingPage() {
         subscription_end_date: expiryDate.toISOString(),
         membership_expires_at: expiryDate.toISOString(),
         updated_at: new Date().toISOString()
-      });
+      };
+      
+      setUserProfile(updatedProfile);
+      
+      // 更新 localStorage 中的用户信息，确保 Header 组件显示最新的会员状态
+      try {
+        const storedUser = localStorage.getItem('current_user');
+        console.log('当前 localStorage 中的用户信息:', storedUser);
+        if (storedUser) {
+          const user = JSON.parse(storedUser);
+          console.log('解析后的用户信息:', user);
+          console.log('要更新的 planType:', planType);
+          const updatedUser = {
+            ...user,
+            plan: planType // 更新会员计划
+          };
+          console.log('更新后的用户信息:', updatedUser);
+          localStorage.setItem('current_user', JSON.stringify(updatedUser));
+          console.log('更新后 localStorage 中的用户信息:', localStorage.getItem('current_user'));
+          
+          // 触发自定义事件，通知 Header 组件更新用户信息
+          console.log('触发 userUpdated 事件');
+          window.dispatchEvent(new Event('userUpdated'));
+        }
+      } catch (err) {
+        console.error('更新本地存储失败:', err);
+      }
       
       await fetchBillingRecords(supabase);
       
       setTimeout(() => {
         handleCloseModal();
+        // 强制刷新页面，确保 Header 组件显示最新的会员状态
+        window.location.reload();
       }, 1500);
     } catch (err) {
       console.error('升级失败:', err);
@@ -963,17 +1028,17 @@ export default function BillingPage() {
                       </svg>
                     </div>
                     <div>
-                      <p className={`text-lg ${isDark ? 'text-[#94a3b8]' : 'text-[#64748b]'}`}>
-                        您当前是 <span className="font-semibold text-[#38bdf8]">{membershipInfo.planName}</span>
-                      </p>
-                      <div className="mt-4 p-4 rounded-xl bg-gradient-to-r from-[#38bdf8]/10 to-[#0ea5e9]/10 border border-[#38bdf8]/20">
-                        <p className="text-3xl font-bold text-[#38bdf8]">{membershipInfo.days}</p>
-                        <p className={`text-sm ${isDark ? 'text-[#64748b]' : 'text-[#94a3b8]'}`}>天后到期</p>
+                        <p className={`text-lg ${isDark ? 'text-[#94a3b8]' : 'text-[#64748b]'}`}>
+                          您当前是 <span className="font-semibold text-[#38bdf8]">{membershipInfo.planName}</span>
+                        </p>
+                        <div className="mt-4 p-4 rounded-xl bg-gradient-to-r from-[#38bdf8]/10 to-[#0ea5e9]/10 border border-[#38bdf8]/20">
+                          <p className="text-3xl font-bold text-[#38bdf8]">{membershipInfo.days}</p>
+                          <p className={`text-sm ${isDark ? 'text-[#64748b]' : 'text-[#94a3b8]'}`}>天后到期</p>
+                        </div>
+                        <p className={`text-sm mt-4 ${isDark ? 'text-[#64748b]' : 'text-[#94a3b8]'}`}>
+                          {membershipInfo.customMessage || '到期后将自动降级为基础版'}
+                        </p>
                       </div>
-                      <p className={`text-sm mt-4 ${isDark ? 'text-[#64748b]' : 'text-[#94a3b8]'}`}>
-                        到期后将自动降级为基础版
-                      </p>
-                    </div>
                   </>
                 )}
               </div>

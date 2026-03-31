@@ -12,15 +12,50 @@ export default function TeamPage() {
 
   const [showModal, setShowModal] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const [members, setMembers] = useState<any[]>([]);
   const [currentTeam, setCurrentTeam] = useState<any>(null);
   const [teams, setTeams] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [isEnterprise, setIsEnterprise] = useState(false);
 
   useEffect(() => {
     if (user?.id) {
-      fetchUserTeams();
+      // 检查用户的会员等级
+      const checkUserPlan = () => {
+        try {
+          const storedUser = localStorage.getItem('current_user');
+          if (storedUser) {
+            const parsedUser = JSON.parse(storedUser);
+            const isEnterprisePlan = parsedUser.plan === 'enterprise';
+            setIsEnterprise(isEnterprisePlan);
+            
+            // 如果不是企业版，显示升级提示
+            if (!isEnterprisePlan) {
+              setShowUpgradeModal(true);
+              setLoading(false); // 确保加载状态为 false
+            } else {
+              // 是企业版，获取团队信息
+              fetchUserTeams();
+            }
+          } else {
+            // 没有用户信息，显示升级提示
+            setShowUpgradeModal(true);
+            setLoading(false); // 确保加载状态为 false
+          }
+        } catch (err) {
+          console.error('检查用户会员等级失败:', err);
+          setShowUpgradeModal(true);
+          setLoading(false); // 确保加载状态为 false
+        }
+      };
+      
+      checkUserPlan();
+    } else {
+      // 未登录，显示升级提示
+      setShowUpgradeModal(true);
+      setLoading(false); // 确保加载状态为 false
     }
   }, [user?.id]);
 
@@ -105,6 +140,22 @@ export default function TeamPage() {
     return (
       <div className={`min-h-screen ${isDark ? 'bg-[#0f172a] text-white' : 'bg-white text-[#0f172a]'} font-sans transition-colors duration-300 flex items-center justify-center`}>
         <div className="w-8 h-8 border-2 border-[#38bdf8] border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
+
+  // 如果不是企业版，只显示升级提示模态框
+  if (!isEnterprise) {
+    return (
+      <div className={`min-h-screen ${isDark ? 'bg-[#0f172a] text-white' : 'bg-white text-[#0f172a]'} font-sans transition-colors duration-300`}>
+        <Header currentPage="team" />
+        <main className="container mx-auto px-6 py-8">
+          {/* 页面内容为空，只显示升级提示模态框 */}
+        </main>
+        
+        {showUpgradeModal && (
+          <UpgradeModal isDark={isDark} onClose={() => setShowUpgradeModal(false)} />
+        )}
       </div>
     );
   }
@@ -221,23 +272,13 @@ export default function TeamPage() {
                       </div>
                     </div>
                     <div className="flex items-center space-x-3">
-                      <span className={`px-3 py-1 text-sm rounded ${
-                        member.role === 'admin'
-                          ? 'bg-[#38bdf8]/20 text-[#38bdf8]'
-                          : isDark
-                          ? 'bg-[#334155] text-[#94a3b8]'
-                          : 'bg-[#e2e8f0] text-[#64748b]'
-                      }`}>
+                      <span className={`px-3 py-1 text-sm rounded ${member.role === 'admin' ? 'bg-[#38bdf8]/20 text-[#38bdf8]' : isDark ? 'bg-[#334155] text-[#94a3b8]' : 'bg-[#e2e8f0] text-[#64748b]'}`}>
                         {member.role === 'admin' ? '管理员' : '成员'}
                       </span>
                       {isAdmin && (
                         <button
                           onClick={() => handleRemoveMember(member.id)}
-                          className={`px-3 py-1 text-sm rounded transition-colors ${
-                            isDark
-                              ? 'hover:bg-red-500/20 text-red-400 hover:text-red-300'
-                              : 'hover:bg-red-50 text-red-500 hover:text-red-600'
-                          }`}
+                          className={`px-3 py-1 text-sm rounded transition-colors ${isDark ? 'hover:bg-red-500/20 text-red-400 hover:text-red-300' : 'hover:bg-red-50 text-red-500 hover:text-red-600'}`}
                         >
                           移除
                         </button>
@@ -271,6 +312,68 @@ export default function TeamPage() {
       {showCreateModal && (
         <CreateTeamModal isDark={isDark} onClose={() => setShowCreateModal(false)} onCreate={handleCreateTeam} />
       )}
+      
+      {showUpgradeModal && (
+        <UpgradeModal isDark={isDark} onClose={() => setShowUpgradeModal(false)} />
+      )}
+    </div>
+  );
+}
+
+function UpgradeModal({ isDark, onClose }: { isDark: boolean; onClose: () => void }) {
+  const handleUpgrade = () => {
+    // 跳转到订阅管理页面
+    window.location.href = '/billing';
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center">
+      <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
+      
+      <div className={`relative w-full max-w-md mx-4 rounded-2xl border shadow-2xl ${isDark ? 'bg-[#1e293b] border-[#334155]' : 'bg-white border-[#e2e8f0]'}`}>
+        <div className="p-6 border-b" style={{ borderColor: isDark ? '#334155' : '#e2e8f0' }}>
+          <div className="flex items-center justify-between">
+            <h3 className="text-xl font-semibold">会员等级不够</h3>
+            <button
+              onClick={onClose}
+              className={`p-2 rounded-lg transition-colors ${isDark ? 'hover:bg-[#334155]' : 'hover:bg-[#f1f5f9]'}`}
+            >
+              <svg className={`w-5 h-5 ${isDark ? 'text-[#94a3b8]' : 'text-[#64748b]'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+        </div>
+
+        <div className="p-6">
+          <div className="text-center mb-6">
+            <div className="w-20 h-20 mx-auto mb-4 rounded-full bg-gradient-to-br from-[#f97316]/20 to-[#38bdf8]/20 flex items-center justify-center">
+              <svg className="w-10 h-10 text-[#f97316]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-.633-1.964-.633-2.732 0L3.34 16c-.77.633.192 3 1.732 3z" />
+              </svg>
+            </div>
+            <h4 className="text-lg font-semibold mb-2">需要企业版会员</h4>
+            <p className={`${isDark ? 'text-[#94a3b8]' : 'text-[#64748b]'}`}>
+              团队管理功能仅对企业版会员开放，请升级到企业版后使用。
+            </p>
+          </div>
+
+          <div className="space-y-3">
+            <button
+              onClick={handleUpgrade}
+              className="w-full py-3 bg-gradient-to-r from-[#38bdf8] to-[#0ea5e9] text-white font-medium rounded-lg hover:shadow-lg hover:shadow-[#38bdf8]/30 transition-all"
+            >
+              立即升级
+            </button>
+            <button
+              onClick={onClose}
+              className={`w-full py-3 border rounded-lg font-medium transition-colors ${isDark ? 'border-[#334155] text-[#94a3b8] hover:bg-[#334155]' : 'border-[#e2e8f0] text-[#64748b] hover:bg-[#f1f5f9]'}`}
+            >
+              取消
+            </button>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
