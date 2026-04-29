@@ -4,8 +4,11 @@ import { useState, useEffect, use } from 'react';
 import Link from 'next/link';
 import ShipmentAlertsPanel from './alerts-panel';
 import Header from '@/components/Header';
+import { useTheme } from '@/context/ThemeContext';
 
 export default function ShipmentDetailPage({ params }: { params: Promise<{ id: string }> }) {
+  const { theme } = useTheme();
+  const isDark = theme === 'dark';
   const { id } = use(params);
   const [activeTab, setActiveTab] = useState('overview');
   const [shipment, setShipment] = useState<any>(null);
@@ -84,10 +87,10 @@ export default function ShipmentDetailPage({ params }: { params: Promise<{ id: s
 
   if (!shipment) {
     return (
-      <div className="min-h-screen bg-[#0f172a] text-white font-sans flex items-center justify-center">
+      <div className={`min-h-screen ${isDark ? 'bg-[#0f172a] text-white' : 'bg-white text-[#0f172a]'} font-sans flex items-center justify-center`}>
         <div className="text-center">
           <div className="text-6xl mb-4">📦</div>
-          <p className="text-[#94a3b8]">加载中...</p>
+          <p className={isDark ? 'text-[#94a3b8]' : 'text-[#64748b]'}>加载中...</p>
         </div>
       </div>
     );
@@ -135,30 +138,30 @@ export default function ShipmentDetailPage({ params }: { params: Promise<{ id: s
   };
 
   return (
-    <div className="min-h-screen bg-[#0f172a] text-white font-sans">
+    <div className={`min-h-screen ${isDark ? 'bg-[#0f172a] text-white' : 'bg-white text-[#0f172a]'} font-sans transition-colors duration-300`}>
       <Header currentPage="shipments" />
 
       {/* 主内容区 */}
       <main className="container mx-auto px-6 py-8">
         {/* 面包屑和标题 */}
         <div className="mb-8">
-          <div className="flex items-center space-x-2 mb-4 text-sm text-[#94a3b8]">
-            <Link href="/shipments" className="hover:text-white transition-colors">
+          <div className={`flex items-center space-x-2 mb-4 text-sm ${isDark ? 'text-[#94a3b8]' : 'text-[#64748b]'}`}>
+            <Link href="/shipments" className={`${isDark ? 'hover:text-white' : 'hover:text-[#0f172a]'} transition-colors`}>
               批次列表
             </Link>
             <span>/</span>
-            <span className="text-white">{shipment.shipment_number}</span>
+            <span className={isDark ? 'text-white' : 'text-[#0f172a]'}>{shipment.shipment_number}</span>
           </div>
           <div className="flex items-start justify-between">
             <div>
               <h2 className="text-3xl font-bold mb-2">{shipment.shipment_number}</h2>
-              <p className="text-[#94a3b8]">{shipment.product_type} - {shipment.origin} → {shipment.destination}</p>
+              <p className={isDark ? 'text-[#94a3b8]' : 'text-[#64748b]'}>{shipment.product_type} - {shipment.origin} → {shipment.destination}</p>
             </div>
             <div className="flex items-center space-x-2">
               <button
                 onClick={generateTestData}
                 disabled={generatingData}
-                className="text-xs px-3 py-1 bg-[#334155] hover:bg-[#475569] rounded font-medium transition-colors disabled:opacity-50"
+                className={`text-xs px-3 py-1 ${isDark ? 'bg-[#334155] hover:bg-[#475569]' : 'bg-gray-200 hover:bg-gray-300'} rounded font-medium transition-colors disabled:opacity-50`}
               >
                 {generatingData ? '生成中...' : '生成模拟数据'}
               </button>
@@ -191,7 +194,7 @@ export default function ShipmentDetailPage({ params }: { params: Promise<{ id: s
         )}
 
         {/* Tab 切换 */}
-        <div className="border-b border-[#1e293b] mb-6">
+        <div className={`border-b ${isDark ? 'border-[#1e293b]' : 'border-gray-200'} mb-6`}>
           <div className="flex space-x-6">
             {['overview', 'prediction', 'alerts', 'locations', 'history', 'events', 'temperature', 'devices'].map((tab) => (
               <button
@@ -200,7 +203,7 @@ export default function ShipmentDetailPage({ params }: { params: Promise<{ id: s
                 className={`pb-4 text-sm font-medium transition-colors ${
                   activeTab === tab
                     ? 'text-[#38bdf8] border-b-2 border-[#38bdf8]'
-                    : 'text-[#94a3b8] hover:text-white'
+                    : `${isDark ? 'text-[#94a3b8] hover:text-white' : 'text-gray-600 hover:text-[#0f172a]'}`
                 }`}
               >
                 {tab === 'overview' && '概览'}
@@ -220,38 +223,38 @@ export default function ShipmentDetailPage({ params }: { params: Promise<{ id: s
         {activeTab === 'overview' && (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* 基本信息 */}
-            <div className="border border-[#1e293b] bg-[#1e293b]/50 rounded-xl p-6 backdrop-blur-sm">
+            <div className={`border ${isDark ? 'border-[#1e293b] bg-[#1e293b]/50' : 'border-gray-200 bg-white'} rounded-xl p-6 backdrop-blur-sm`}>
               <h3 className="text-lg font-semibold mb-4">基本信息</h3>
               <div className="space-y-3">
                 <div className="flex justify-between">
-                  <span className="text-[#94a3b8] text-sm">批次号</span>
+                  <span className={`text-sm ${isDark ? 'text-[#94a3b8]' : 'text-gray-600'}`}>批次号</span>
                   <span className="font-medium">{shipment.shipment_number}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-[#94a3b8] text-sm">产品</span>
+                  <span className={`text-sm ${isDark ? 'text-[#94a3b8]' : 'text-gray-600'}`}>产品</span>
                   <span className="font-medium">{shipment.product_type}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-[#94a3b8] text-sm">数量</span>
+                  <span className={`text-sm ${isDark ? 'text-[#94a3b8]' : 'text-gray-600'}`}>数量</span>
                   <span className="font-medium">{shipment.quantity}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-[#94a3b8] text-sm">发货地</span>
+                  <span className={`text-sm ${isDark ? 'text-[#94a3b8]' : 'text-gray-600'}`}>发货地</span>
                   <span className="font-medium">{shipment.origin}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-[#94a3b8] text-sm">目的地</span>
+                  <span className={`text-sm ${isDark ? 'text-[#94a3b8]' : 'text-gray-600'}`}>目的地</span>
                   <span className="font-medium">{shipment.destination}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-[#94a3b8] text-sm">包装类型</span>
+                  <span className={`text-sm ${isDark ? 'text-[#94a3b8]' : 'text-gray-600'}`}>包装类型</span>
                   <span className="font-medium">{shipment.packaging}</span>
                 </div>
               </div>
             </div>
 
             {/* 实时状态 */}
-            <div className="border border-[#1e293b] bg-[#1e293b]/50 rounded-xl p-6 backdrop-blur-sm">
+            <div className={`border ${isDark ? 'border-[#1e293b] bg-[#1e293b]/50' : 'border-gray-200 bg-white'} rounded-xl p-6 backdrop-blur-sm`}>
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-lg font-semibold">实时状态</h3>
                 <button
@@ -263,20 +266,20 @@ export default function ShipmentDetailPage({ params }: { params: Promise<{ id: s
                 </button>
               </div>
               <div className="grid grid-cols-2 gap-4">
-                <div className="bg-[#0f172a] rounded-lg p-4">
-                  <p className="text-[#94a3b8] text-xs mb-1">当前温度</p>
+                <div className={`${isDark ? 'bg-[#0f172a]' : 'bg-gray-50'} rounded-lg p-4`}>
+                  <p className={`text-xs mb-1 ${isDark ? 'text-[#94a3b8]' : 'text-gray-600'}`}>当前温度</p>
                   <p className="text-2xl font-bold">{shipment.current_temperature || '未知'}°C</p>
                 </div>
-                <div className="bg-[#0f172a] rounded-lg p-4">
-                  <p className="text-[#94a3b8] text-xs mb-1">要求温度</p>
+                <div className={`${isDark ? 'bg-[#0f172a]' : 'bg-gray-50'} rounded-lg p-4`}>
+                  <p className={`text-xs mb-1 ${isDark ? 'text-[#94a3b8]' : 'text-gray-600'}`}>要求温度</p>
                   <p className="text-2xl font-bold">{shipment.temperature_requirement}°C</p>
                 </div>
-                <div className="bg-[#0f172a] rounded-lg p-4">
-                  <p className="text-[#94a3b8] text-xs mb-1">湿度</p>
+                <div className={`${isDark ? 'bg-[#0f172a]' : 'bg-gray-50'} rounded-lg p-4`}>
+                  <p className={`text-xs mb-1 ${isDark ? 'text-[#94a3b8]' : 'text-gray-600'}`}>湿度</p>
                   <p className="text-2xl font-bold">{shipment.current_humidity || '未知'}%</p>
                 </div>
-                <div className="bg-[#0f172a] rounded-lg p-4">
-                  <p className="text-[#94a3b8] text-xs mb-1">设备数</p>
+                <div className={`${isDark ? 'bg-[#0f172a]' : 'bg-gray-50'} rounded-lg p-4`}>
+                  <p className={`text-xs mb-1 ${isDark ? 'text-[#94a3b8]' : 'text-gray-600'}`}>设备数</p>
                   <p className="text-2xl font-bold">{shipment.devices?.length || 0}</p>
                 </div>
               </div>
@@ -287,17 +290,17 @@ export default function ShipmentDetailPage({ params }: { params: Promise<{ id: s
         {activeTab === 'prediction' && (
           <div className="space-y-6">
             {!prediction ? (
-              <div className="border border-[#1e293b] bg-[#1e293b]/50 rounded-xl p-6 backdrop-blur-sm">
+              <div className={`border ${isDark ? 'border-[#1e293b] bg-[#1e293b]/50' : 'border-gray-200 bg-white'} rounded-xl p-6 backdrop-blur-sm`}>
                 <div className="text-center mb-6">
                   <div className="text-6xl mb-4">🔮</div>
-                  <p className="text-[#94a3b8]">点击"AI预测"按钮获取风险预测</p>
+                  <p className={isDark ? 'text-[#94a3b8]' : 'text-gray-600'}>点击"AI预测"按钮获取风险预测</p>
                 </div>
                 <div className="max-w-md mx-auto mb-4">
-                  <label className="block text-sm font-medium mb-2 text-[#94a3b8]">预测模式</label>
+                  <label className={`block text-sm font-medium mb-2 ${isDark ? 'text-[#94a3b8]' : 'text-gray-600'}`}>预测模式</label>
                   <select
                     value={predictMode}
                     onChange={(e) => setPredictMode(e.target.value as any)}
-                    className="w-full px-4 py-2 bg-[#0f172a] border border-[#334155] rounded-lg focus:outline-none focus:border-[#38bdf8] text-white"
+                    className={`w-full px-4 py-2 ${isDark ? 'bg-[#0f172a] border-[#334155] text-white' : 'bg-white border-gray-300 text-[#0f172a]'} border rounded-lg focus:outline-none focus:border-[#38bdf8]`}
                   >
                     <option value="hybrid">混合模式（推荐）</option>
                     <option value="rule">规则分析</option>
@@ -344,47 +347,47 @@ export default function ShipmentDetailPage({ params }: { params: Promise<{ id: s
 
                 {/* 混合分析详情 */}
                 {(prediction.ruleBasedScore !== undefined || prediction.llmScore !== undefined) && (
-                  <div className="border border-[#1e293b] bg-[#1e293b]/50 rounded-xl p-6 backdrop-blur-sm">
+                  <div className={`border ${isDark ? 'border-[#1e293b] bg-[#1e293b]/50' : 'border-gray-200 bg-white'} rounded-xl p-6 backdrop-blur-sm`}>
                     <h3 className="text-lg font-semibold mb-4">混合分析详情</h3>
                     <div className="grid grid-cols-2 gap-4">
                       {prediction.ruleBasedScore !== undefined && (
-                        <div className="bg-[#0f172a] rounded-lg p-4">
-                          <p className="text-[#94a3b8] text-xs mb-1">规则分析</p>
+                        <div className={`${isDark ? 'bg-[#0f172a]' : 'bg-gray-50'} rounded-lg p-4`}>
+                          <p className={`text-xs mb-1 ${isDark ? 'text-[#94a3b8]' : 'text-gray-600'}`}>规则分析</p>
                           <p className="text-2xl font-bold text-[#38bdf8]">{prediction.ruleBasedScore}分</p>
                         </div>
                       )}
                       {prediction.llmScore !== undefined && (
-                        <div className="bg-[#0f172a] rounded-lg p-4">
-                          <p className="text-[#94a3b8] text-xs mb-1">AI 分析</p>
+                        <div className={`${isDark ? 'bg-[#0f172a]' : 'bg-gray-50'} rounded-lg p-4`}>
+                          <p className={`text-xs mb-1 ${isDark ? 'text-[#94a3b8]' : 'text-gray-600'}`}>AI 分析</p>
                           <p className="text-2xl font-bold text-[#f97316]">{prediction.llmScore}分</p>
                         </div>
                       )}
                     </div>
-                    <div className="mt-4 bg-[#0f172a] rounded-lg p-4">
-                      <p className="text-[#94a3b8] text-xs mb-1">综合评分</p>
+                    <div className={`mt-4 ${isDark ? 'bg-[#0f172a]' : 'bg-gray-50'} rounded-lg p-4`}>
+                      <p className={`text-xs mb-1 ${isDark ? 'text-[#94a3b8]' : 'text-gray-600'}`}>综合评分</p>
                       <p className="text-3xl font-bold">{prediction.riskScore}分</p>
-                      <p className="text-xs text-[#64748b] mt-1">融合权重: 规则30% + AI70%</p>
+                      <p className={`text-xs mt-1 ${isDark ? 'text-[#64748b]' : 'text-gray-500'}`}>融合权重: 规则30% + AI70%</p>
                     </div>
                   </div>
                 )}
 
                 {/* 预测详情 */}
-                <div className="border border-[#1e293b] bg-[#1e293b]/50 rounded-xl p-6 backdrop-blur-sm">
+                <div className={`border ${isDark ? 'border-[#1e293b] bg-[#1e293b]/50' : 'border-gray-200 bg-white'} rounded-xl p-6 backdrop-blur-sm`}>
                   <h3 className="text-lg font-semibold mb-4">时间区间预测</h3>
                   <div className="space-y-4">
                     {prediction.predictions.map((pred: any, index: number) => (
-                      <div key={index} className="bg-[#0f172a] rounded-lg p-4">
+                      <div key={index} className={`${isDark ? 'bg-[#0f172a]' : 'bg-gray-50'} rounded-lg p-4`}>
                         <div className="flex justify-between items-start mb-2">
                           <span className="font-medium">{pred.timeframe}</span>
-                          <span className="text-sm text-[#94a3b8]">概率: {pred.probability}%</span>
+                          <span className={`text-sm ${isDark ? 'text-[#94a3b8]' : 'text-gray-600'}`}>概率: {pred.probability}%</span>
                         </div>
                         <div className="flex items-center space-x-4 mb-3">
                           <div className="flex-1">
-                            <div className="flex justify-between text-sm text-[#94a3b8] mb-1">
+                            <div className={`flex justify-between text-sm mb-1 ${isDark ? 'text-[#94a3b8]' : 'text-gray-600'}`}>
                               <span>{pred.expectedTempRange[0]}°C</span>
                               <span>{pred.expectedTempRange[1]}°C</span>
                             </div>
-                            <div className="w-full bg-[#1e293b] rounded-full h-2">
+                            <div className={`w-full ${isDark ? 'bg-[#1e293b]' : 'bg-gray-200'} rounded-full h-2`}>
                               <div
                                 className="bg-gradient-to-r from-[#38bdf8] to-[#f97316] h-2 rounded-full"
                                 style={{ width: `${pred.probability}%` }}
@@ -392,7 +395,7 @@ export default function ShipmentDetailPage({ params }: { params: Promise<{ id: s
                             </div>
                           </div>
                         </div>
-                        <div className="text-sm text-[#94a3b8]">
+                        <div className={`text-sm ${isDark ? 'text-[#94a3b8]' : 'text-gray-600'}`}>
                           影响因素: {pred.factors.join(', ')}
                         </div>
                       </div>
@@ -401,7 +404,7 @@ export default function ShipmentDetailPage({ params }: { params: Promise<{ id: s
                 </div>
 
                 {/* 建议措施 */}
-                <div className="border border-[#1e293b] bg-[#1e293b]/50 rounded-xl p-6 backdrop-blur-sm">
+                <div className={`border ${isDark ? 'border-[#1e293b] bg-[#1e293b]/50' : 'border-gray-200 bg-white'} rounded-xl p-6 backdrop-blur-sm`}>
                   <h3 className="text-lg font-semibold mb-4">建议措施</h3>
                   <ul className="space-y-2">
                     {prediction.recommendations.map((rec: string, index: number) => (

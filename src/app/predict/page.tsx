@@ -15,10 +15,39 @@ export default function PredictPage() {
   const [predictionHistory, setPredictionHistory] = useState<any[]>([]);
   const [analyzing, setAnalyzing] = useState(false);
   const [mode, setMode] = useState<'hybrid' | 'rule' | 'llm'>('hybrid');
+  
+  // 预测结果缓存：Map<shipmentId, predictionData>
+  const [predictionCache, setPredictionCache] = useState<Map<number, any>>(new Map());
+  
+  // 缓存时间戳：Map<shipmentId, timestamp>
+  const [cacheTimestamps, setCacheTimestamps] = useState<Map<number, number>>(new Map());
 
   useEffect(() => {
     fetchShipments();
   }, []);
+
+  // 当选择的批次变化时，从缓存中加载预测结果
+  useEffect(() => {
+    if (selectedShipmentId) {
+      const cachedPrediction = predictionCache.get(selectedShipmentId);
+      const cacheTimestamp = cacheTimestamps.get(selectedShipmentId);
+      
+      // 检查缓存是否过期（1小时）
+      const isCacheValid = cacheTimestamp && (Date.now() - cacheTimestamp < 60 * 60 * 1000);
+      
+      if (cachedPrediction && isCacheValid) {
+        // 从缓存加载预测结果
+        setPrediction(cachedPrediction);
+        console.log(`从缓存加载批次 ${selectedShipmentId} 的预测结果`);
+      } else {
+        // 缓存过期或不存在，清空当前预测
+        setPrediction(null);
+        if (cachedPrediction && !isCacheValid) {
+          console.log(`批次 ${selectedShipmentId} 的缓存已过期，需要重新预测`);
+        }
+      }
+    }
+  }, [selectedShipmentId, predictionCache, cacheTimestamps]);
 
   const fetchShipments = async () => {
     try {
@@ -55,7 +84,20 @@ export default function PredictPage() {
 
       const result = await response.json();
       if (result.success) {
+        // 保存预测结果到缓存
+        const newPredictionCache = new Map(predictionCache);
+        newPredictionCache.set(selectedShipmentId, result.data);
+        setPredictionCache(newPredictionCache);
+        
+        // 保存缓存时间戳
+        const newCacheTimestamps = new Map(cacheTimestamps);
+        newCacheTimestamps.set(selectedShipmentId, Date.now());
+        setCacheTimestamps(newCacheTimestamps);
+        
+        // 设置当前预测结果
         setPrediction(result.data);
+        console.log(`批次 ${selectedShipmentId} 的预测结果已缓存`);
+        
         await fetchPredictionHistory(selectedShipmentId);
       }
     } catch (error) {
@@ -70,6 +112,22 @@ export default function PredictPage() {
       setPredictionHistory([]);
     } catch (error) {
       console.error('获取预测历史失败:', error);
+    }
+  };
+
+  // 切换批次并自动加载缓存
+  const handleShipmentSelect = (shipmentId: number) => {
+    setSelectedShipmentId(shipmentId);
+    
+    // 检查是否有缓存的预测结果
+    const cachedPrediction = predictionCache.get(shipmentId);
+    const cacheTimestamp = cacheTimestamps.get(shipmentId);
+    const isCacheValid = cacheTimestamp && (Date.now() - cacheTimestamp < 60 * 60 * 1000);
+    
+    if (cachedPrediction && isCacheValid) {
+      console.log(`自动显示批次 ${shipmentId} 的缓存预测结果`);
+    } else {
+      console.log(`批次 ${shipmentId} 无缓存或缓存已过期`);
     }
   };
 
@@ -120,36 +178,47 @@ export default function PredictPage() {
             <h3 className="text-lg font-semibold mb-4">选择批次</h3>
 
             <div className="space-y-2 mb-4">
-              {shipments.map((shipment) => (
-                <button
-                  key={shipment.id}
-                  onClick={() => setSelectedShipmentId(shipment.id)}
-                  className={`w-full text-left px-4 py-3 rounded-lg transition-colors ${
-                    selectedShipmentId === shipment.id
-                      ? 'bg-[#38bdf8]/20 border border-[#38bdf8]'
-                      : isDark
-                        ? 'bg-[#0f172a] border border-[#334155] hover:border-[#38bdf8]'
-                        : 'bg-white border border-[#e2e8f0] hover:border-[#38bdf8]'
-                  }`}
-                >
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <p className="font-medium">{shipment.shipment_number}</p>
-                      <p className={`text-xs mt-1 ${isDark ? 'text-[#94a3b8]' : 'text-[#64748b]'}`}>
-                        {shipment.product_type} - {shipment.origin} → {shipment.destination}
-                      </p>
+              {shipments.map((shipment) => {
+                const hasCache = predictionCache.has(shipment.id);
+                const cacheTimestamp = cacheTimestamps.get(shipment.id);
+                const isCacheValid = cacheTimestamp && (Date.now() - cacheTimestamp < 60 * 60 * 1000);
+                
+                return (
+                  <button
+                    key={shipment.id}
+                    onClick={() => handleShipmentSelect(shipment.id)}
+                    className={`w-full text-left px-4 py-3 rounded-lg transition-colors ${
+                      selectedShipmentId === shipment.id
+                        ? 'bg-[#38bdf8]/20 border border-[#38bdf8]'
+                        : isDark
+                          ? 'bg-[#0f172a] border border-[#334155] hover:border-[#38bdf8]'
+                          : 'bg-white border border-[#e2e8f0] hover:border-[#38bdf8]'
+                    }`}
+                  >
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <p className="font-medium">{shipment.shipment_number}</p>
+                        <p className={`text-xs mt-1 ${isDark ? 'text-[#94a3b8]' : 'text-[#64748b]'}`}>
+                          {shipment.product_type} - {shipment.origin} → {shipment.destination}
+                        </p>
+                        {hasCache && (
+                          <p className={`text-xs mt-1 ${isCacheValid ? 'text-green-500' : 'text-yellow-500'}`}>
+                            {isCacheValid ? '✅ 已预测' : '🕒 缓存过期'}
+                          </p>
+                        )}
+                      </div>
+                      <span className={`text-xs px-2 py-1 rounded ${
+                        shipment.status === 'in_transit' ? 'bg-[#38bdf8]/20 text-[#38bdf8]' :
+                        shipment.status === 'delivered' ? 'bg-[#22c55e]/20 text-[#22c55e]' :
+                        'bg-[#fbbf24]/20 text-[#fbbf24]'
+                      }`}>
+                        {shipment.status === 'in_transit' ? '运输中' :
+                         shipment.status === 'delivered' ? '已送达' : '待出发'}
+                      </span>
                     </div>
-                    <span className={`text-xs px-2 py-1 rounded ${
-                      shipment.status === 'in_transit' ? 'bg-[#38bdf8]/20 text-[#38bdf8]' :
-                      shipment.status === 'delivered' ? 'bg-[#22c55e]/20 text-[#22c55e]' :
-                      'bg-[#fbbf24]/20 text-[#fbbf24]'
-                    }`}>
-                      {shipment.status === 'in_transit' ? '运输中' :
-                       shipment.status === 'delivered' ? '已送达' : '待出发'}
-                    </span>
-                  </div>
-                </button>
-              ))}
+                  </button>
+                );
+              })}
             </div>
 
             <div className="mb-4">

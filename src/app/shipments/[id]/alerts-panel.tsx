@@ -2,8 +2,11 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { useTheme } from '@/context/ThemeContext';
 
 export default function ShipmentAlertsPanel({ shipmentId }: { shipmentId: string }) {
+  const { theme } = useTheme();
+  const isDark = theme === 'dark';
   const [alerts, setAlerts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -111,7 +114,7 @@ export default function ShipmentAlertsPanel({ shipmentId }: { shipmentId: string
 
   if (loading) {
     return (
-      <div className="border border-[#1e293b] bg-[#1e293b]/50 rounded-xl p-6 backdrop-blur-sm text-center text-[#94a3b8]">
+      <div className={`border ${isDark ? 'border-[#1e293b] bg-[#1e293b]/50' : 'border-gray-200 bg-white'} rounded-xl p-6 backdrop-blur-sm text-center ${isDark ? 'text-[#94a3b8]' : 'text-gray-600'}`}>
         加载中...
       </div>
     );
@@ -119,9 +122,9 @@ export default function ShipmentAlertsPanel({ shipmentId }: { shipmentId: string
 
   if (alerts.length === 0) {
     return (
-      <div className="border border-[#1e293b] bg-[#1e293b]/50 rounded-xl p-12 backdrop-blur-sm text-center">
+      <div className={`border ${isDark ? 'border-[#1e293b] bg-[#1e293b]/50' : 'border-gray-200 bg-white'} rounded-xl p-12 backdrop-blur-sm text-center`}>
         <div className="text-4xl mb-3">✓</div>
-        <p className="text-[#94a3b8]">暂无预警信息</p>
+        <p className={isDark ? 'text-[#94a3b8]' : 'text-gray-600'}>暂无预警信息</p>
       </div>
     );
   }
@@ -131,7 +134,7 @@ export default function ShipmentAlertsPanel({ shipmentId }: { shipmentId: string
       {alerts.map((alert) => (
         <div
           key={alert.id}
-          className={`border-l-4 ${getSeverityBorderColor(alert.severity)} border-y border-r border-[#1e293b] bg-[#1e293b]/50 rounded-r-xl p-4 backdrop-blur-sm ${!alert.is_read ? 'bg-[#1e293b]/70' : ''}`}
+          className={`border-l-4 ${getSeverityBorderColor(alert.severity)} border-y border-r ${isDark ? 'border-[#1e293b]' : 'border-gray-200'} ${isDark ? 'bg-[#1e293b]/50' : 'bg-white'} rounded-r-xl p-4 backdrop-blur-sm ${!alert.is_read ? (isDark ? 'bg-[#1e293b]/70' : 'bg-gray-100') : ''}`}
         >
           <div className="flex items-start justify-between">
             <div className="flex-1">
@@ -142,13 +145,13 @@ export default function ShipmentAlertsPanel({ shipmentId }: { shipmentId: string
                 <span className={`text-xs px-2 py-1 rounded ${getSeverityColor(alert.severity)} text-white`}>
                   {getSeverityText(alert.severity)}
                 </span>
-                <span className="text-xs text-[#94a3b8]">
+                <span className={`text-xs ${isDark ? 'text-[#94a3b8]' : 'text-gray-600'}`}>
                   {new Date(alert.alerted_at).toLocaleString('zh-CN')}
                 </span>
               </div>
               <h3 className="text-sm font-semibold mb-2">{alert.message}</h3>
               {alert.detail && (
-                <div className="text-xs text-[#94a3b8] mb-2">
+                <div className={`text-xs mb-2 ${isDark ? 'text-[#94a3b8]' : 'text-gray-600'}`}>
                   {alert.detail.riskScore && (
                     <span className="mr-3">风险评分: {alert.detail.riskScore}</span>
                   )}
@@ -158,8 +161,8 @@ export default function ShipmentAlertsPanel({ shipmentId }: { shipmentId: string
                 </div>
               )}
               {alert.detail?.recommendations && alert.detail.recommendations.length > 0 && (
-                <div className="bg-[#0f172a] rounded-lg p-3 mt-2">
-                  <p className="text-xs text-[#94a3b8] mb-1">建议措施:</p>
+                <div className={`${isDark ? 'bg-[#0f172a]' : 'bg-gray-50'} rounded-lg p-3 mt-2`}>
+                  <p className={`text-xs mb-1 ${isDark ? 'text-[#94a3b8]' : 'text-gray-600'}`}>建议措施:</p>
                   <ul className="space-y-1">
                     {alert.detail.recommendations.slice(0, 2).map((rec: string, index: number) => (
                       <li key={index} className="text-xs flex items-start space-x-2">
@@ -175,7 +178,7 @@ export default function ShipmentAlertsPanel({ shipmentId }: { shipmentId: string
               {!alert.is_read && (
                 <button
                   onClick={() => markAsRead(alert.id)}
-                  className="px-3 py-1 bg-[#334155] hover:bg-[#475569] text-white rounded text-xs transition-colors"
+                  className={`px-3 py-1 ${isDark ? 'bg-[#334155] hover:bg-[#475569]' : 'bg-gray-200 hover:bg-gray-300'} text-white rounded text-xs transition-colors`}
                 >
                   标记已读
                 </button>

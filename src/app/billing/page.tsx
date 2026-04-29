@@ -110,7 +110,7 @@ export default function BillingPage() {
   
   // 会员信息弹窗状态
   const [showMembershipModal, setShowMembershipModal] = useState(false);
-  const [membershipInfo, setMembershipInfo] = useState<{days: number; planName: string} | null>(null);
+  const [membershipInfo, setMembershipInfo] = useState<{days: number; planName: string; customMessage?: string} | null>(null);
 
   // 初始化 Supabase 客户端
   useEffect(() => {

@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseClient } from '@/storage/database/supabase-client';
-import { LLMClient, Config, HeaderUtils } from 'coze-coding-dev-sdk';
 
 interface TemperatureData {
   timestamp: string;
@@ -362,10 +361,6 @@ async function llmPrediction(
   similarShipments: any[],
   request: NextRequest
 ): Promise<PredictionResult> {
-  const customHeaders = HeaderUtils.extractForwardHeaders(request.headers);
-  const config = new Config();
-  const client = new LLMClient(config, customHeaders);
-
   const analysisPrompt = buildAnalysisPrompt({
     shipment,
     temperatureData,
@@ -373,11 +368,35 @@ async function llmPrediction(
     similarShipments,
   });
 
-  const stream = client.stream(
-    [
-      {
-        role: 'system',
-        content: `你是一位资深的冷链物流风险分析专家。你的任务是基于历史数据和环境因素，预测未来24-72小时内温度波动风险，并提供专业的建议。
+  // 调试信息：分析提示词
+  console.log('=== DeepSeek API调试信息 ===');
+  console.log('分析提示词长度:', analysisPrompt.length);
+  console.log('运输批次信息:');
+  console.log('- 批次号:', shipment.shipment_number);
+  console.log('- 当前温度:', shipment.current_temperature);
+  console.log('- 温度要求:', shipment.temperature_requirement);
+  console.log('- 状态:', shipment.status);
+  console.log('- 温度数据条数:', temperatureData.length);
+
+  try {
+     // 使用原生fetch调用DeepSeek API
+     const apiKey = process.env.DEEPSEEK_API_KEY || 'sk-fad3d081897c4e1d9119796a5fa20f92';
+     
+     console.log('API密钥前10位:', apiKey.substring(0, 10) + '...');
+     console.log('开始调用DeepSeek API...');
+     
+     const apiResponse = await fetch('https://api.deepseek.com/v1/chat/completions', {
+       method: 'POST',
+       headers: {
+         'Content-Type': 'application/json',
+         'Authorization': `Bearer ${apiKey}`
+       },
+       body: JSON.stringify({
+         model: 'deepseek-chat',
+         messages: [
+           {
+             role: 'system',
+             content: `你是一位资深的冷链物流风险分析专家。你的任务是基于历史数据和环境因素，预测未来24-72小时内温度波动风险，并提供专业的建议。
 
 输出格式要求（必须严格遵循 JSON 格式）：
 \`\`\`json
@@ -402,36 +421,113 @@ async function llmPrediction(
 - riskLevel: critical (>90分), high (70-90分), medium (50-70分), low (<50分)
 - 考虑因素：历史温度波动、当前温度与要求温度的差距、运输距离、包装类型、天气条件、同类型产品历史表现
 - probability: 温度超出范围的概率`
-      },
-      {
-        role: 'user',
-        content: analysisPrompt
+           },
+           {
+             role: 'user',
+             content: analysisPrompt
+           }
+         ],
+         temperature: 0.7,
+         max_tokens: 2000,
+       })
+     });
+ 
+     console.log('API响应状态:', apiResponse.status, apiResponse.statusText);
+     
+     if (!apiResponse.ok) {
+       const errorText = await apiResponse.text();
+       console.error('API请求失败详情:');
+       console.error('状态码:', apiResponse.status);
+       console.error('错误信息:', errorText);
+       throw new Error(`DeepSeek API请求失败: ${apiResponse.status} ${apiResponse.statusText}`);
+     }
+ 
+     const data = await apiResponse.json();
+     console.log('API响应数据:');
+     console.log('- 模型:', data.model);
+     console.log('- 使用token数:', data.usage?.total_tokens);
+     console.log('- 响应内容长度:', data.choices[0]?.message?.content?.length || 0);
+     
+     const response = data.choices[0]?.message?.content;
+     if (!response) {
+       console.error('API返回空响应，完整数据:', JSON.stringify(data, null, 2));
+       throw new Error('DeepSeek API返回空响应');
+     }
+
+    console.log('原始响应内容:');
+    console.log(response.substring(0, 200) + '...');
+
+    const jsonMatch = response.match(/```json\n([\s\S]*?)\n```/);
+    if (jsonMatch) {
+      console.log('找到JSON代码块，尝试解析...');
+      try {
+        const result = JSON.parse(jsonMatch[1]);
+        console.log('JSON解析成功，风险等级:', result.riskLevel, '评分:', result.riskScore);
+        return result;
+      } catch (e) {
+        console.error('DeepSeek JSON解析失败:', e);
+        console.error('JSON内容:', jsonMatch[1]);
       }
-    ],
-    {
-      model: 'doubao-seed-1-6-thinking-250715',
-      thinking: 'enabled',
-      temperature: 0.7,
+    } else {
+      console.log('未找到JSON代码块，尝试直接解析整个响应...');
     }
-  );
 
-  let fullResponse = '';
-  for await (const chunk of stream) {
-    if (chunk.content) {
-      fullResponse += chunk.content.toString();
-    }
-  }
-
-  const jsonMatch = fullResponse.match(/```json\n([\s\S]*?)\n```/);
-  if (jsonMatch) {
+    // 尝试直接解析JSON
     try {
-      return JSON.parse(jsonMatch[1]);
+      const result = JSON.parse(response);
+      console.log('直接JSON解析成功，风险等级:', result.riskLevel, '评分:', result.riskScore);
+      return result;
     } catch (e) {
-      console.error('LLM JSON 解析失败:', e);
+      console.error('直接JSON解析失败:', e);
+      console.error('响应内容:', response);
     }
-  }
+  } catch (error) {
+     console.error('=== DeepSeek API调用失败 ===');
+     console.error('错误信息:', error);
+     console.error('错误堆栈:', error instanceof Error ? error.stack : '无堆栈信息');
+     
+     // API调用失败时，回退到增强的规则分析
+     console.log('开始降级到增强规则分析...');
+     const ruleAnalysis = ruleBasedAnalysis(shipment, temperatureData);
+     console.log('规则分析结果 - 原始分数:', ruleAnalysis.score, '风险等级:', ruleAnalysis.riskLevel);
+     console.log('影响因素:', ruleAnalysis.factors);
+     
+     let enhancedScore = ruleAnalysis.score;
+     let enhancedFactors = [...ruleAnalysis.factors];
+     
+     if (shipment.route?.distance > 500) {
+       enhancedScore += 10;
+       enhancedFactors.push('长距离运输风险增加');
+       console.log('运输距离增强: +10分');
+     }
+     
+     if (temperatureData.length > 0) {
+       const temps = temperatureData.map(d => d.temperature);
+       const fluctuation = Math.max(...temps) - Math.min(...temps);
+       if (fluctuation > 3) {
+         enhancedScore += 15;
+         enhancedFactors.push('历史温度波动较大');
+         console.log('温度波动增强: +15分');
+       }
+     }
+     
+     enhancedScore = Math.min(100, Math.max(0, enhancedScore));
+     const enhancedRiskLevel = determineRiskLevel(enhancedScore);
+     
+     console.log('最终增强分析 - 分数:', enhancedScore, '风险等级:', enhancedRiskLevel);
+     
+     return {
+       riskLevel: enhancedRiskLevel,
+       riskScore: enhancedScore,
+       confidence: 70,
+       predictions: generatePredictions(shipment, enhancedScore),
+       recommendations: generateRecommendations(enhancedRiskLevel),
+       analysis: `DeepSeek API调用失败，使用增强规则分析模式。\n\n风险等级: ${enhancedRiskLevel}（评分: ${enhancedScore}）。\n\n影响因素:\n${enhancedFactors.map(f => '- ' + f).join('\\n')}\n\nAPI错误: ${error instanceof Error ? error.message : '未知错误'}`,
+       llmScore: enhancedScore,
+     };
+   }
 
-  // 回退到默认预测
+  // 如果所有尝试都失败，回退到默认预测
   return getDefaultPrediction(shipment, temperatureData);
 }
 
@@ -565,40 +661,17 @@ function buildAnalysisPrompt(data: {
 }
 
 function getDefaultPrediction(shipment: any, temperatureData: TemperatureData[]): PredictionResult {
-  let riskLevel: 'low' | 'medium' | 'high' | 'critical' = 'low';
-  let riskScore = 30;
-  const recommendations: string[] = [];
-
-  if (shipment.current_temperature !== null) {
-    const tempDiff = Math.abs(shipment.current_temperature - shipment.temperature_requirement);
-    if (tempDiff > 5) {
-      riskLevel = 'critical';
-      riskScore = 95;
-      recommendations.push('立即检查温度控制设备，当前温度严重超出要求！');
-    } else if (tempDiff > 2) {
-      riskLevel = 'high';
-      riskScore = 80;
-      recommendations.push('温度超出要求范围，建议检查制冷设备');
-    } else if (tempDiff > 1) {
-      riskLevel = 'medium';
-      riskScore = 60;
-      recommendations.push('温度接近边界，建议密切监控');
-    }
-  }
-
-  if (shipment.status === 'in_transit' && riskScore < 50) {
-    riskScore = 45;
-  }
-
+  // 使用规则分析作为默认预测，避免过于保守
+  const ruleAnalysis = ruleBasedAnalysis(shipment, temperatureData);
+  
   return {
-    riskLevel,
-    riskScore,
-    confidence: temperatureData.length > 10 ? 80 : 50,
-    predictions: generatePredictions(shipment, riskScore),
-    recommendations: [...recommendations, ...generateRecommendations(riskLevel)],
-    analysis: temperatureData.length > 0
-      ? `基于 ${temperatureData.length} 条历史温度数据的分析，当前风险等级为 ${riskLevel}（评分：${riskScore}）。`
-      : `暂无历史温度数据，基于批次配置信息进行保守评估。建议尽快开始数据采集。`,
+    riskLevel: ruleAnalysis.riskLevel,
+    riskScore: ruleAnalysis.score,
+    confidence: temperatureData.length > 5 ? 75 : 60,
+    predictions: generatePredictions(shipment, ruleAnalysis.score),
+    recommendations: generateRecommendations(ruleAnalysis.riskLevel),
+    analysis: `AI分析服务暂时不可用，使用规则分析模式。\n\n当前风险等级: ${ruleAnalysis.riskLevel}（评分: ${ruleAnalysis.score}）。\n\n影响因素:\n${ruleAnalysis.factors.map(f => '- ' + f).join('\\n')}\n\n建议: 检查AI服务配置以启用更准确的预测。`,
+    ruleBasedScore: ruleAnalysis.score,
   };
 }
 
